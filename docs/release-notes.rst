@@ -3,6 +3,175 @@
 Release Notes
 #############
 
+v0.2.7
+******
+
+Date released: 10-14-2020
+
+This is a quick patch release to fix a runtime error introduced in ``v0.2.6`` (`#2188 <https://github.com/vyperlang/vyper/pull/2188>`_) that could allow for memory corruption under certain conditions.
+
+Non-breaking changes and improvements:
+
+- Optimizations around ``assert`` and ``raise`` (`#2198 <https://github.com/vyperlang/vyper/pull/2198>`_)
+- Simplified internal handling of memory variables (`#2194 <https://github.com/vyperlang/vyper/pull/2194>`_)
+
+Fixes:
+
+- Ensure internal variables are always placed sequentially within memory (`#2196 <https://github.com/vyperlang/vyper/pull/2196>`_)
+- Bugfixes around memory de-allocation (`#2197 <https://github.com/vyperlang/vyper/pull/2197>`_)
+
+v0.2.6
+******
+
+Date released: 10-10-2020
+
+Non-breaking changes and improvements:
+
+- Release and reuse memory slots within the same function (`#2188 <https://github.com/vyperlang/vyper/pull/2188>`_)
+- Allow implicit use of ``uint256`` as iterator type in range-based for loops (`#2180 <https://github.com/vyperlang/vyper/pull/2180>`_)
+- Optimize clamping logic for ``int128`` (`#2179 <https://github.com/vyperlang/vyper/pull/2179>`_)
+- Calculate array index offsets at compile time where possible (`#2187 <https://github.com/vyperlang/vyper/pull/2187>`_)
+- Improved exception for invalid use of dynamically sized struct (`#2189 <https://github.com/vyperlang/vyper/pull/2189>`_)
+- Improved exception for incorrect arg count in function call (`#2178 <https://github.com/vyperlang/vyper/pull/2178>`_)
+- Improved exception for invalid subscript (`#2177 <https://github.com/vyperlang/vyper/pull/2177>`_)
+
+Fixes:
+
+- Memory corruption issue when performing function calls inside a tuple or another function call (`#2186 <https://github.com/vyperlang/vyper/pull/2186>`_)
+- Incorrect function output when using multidimensional arrays (`#2184 <https://github.com/vyperlang/vyper/pull/2184>`_)
+- Reduced ambiguity bewteen ``address`` and ``Bytes[20]`` (`#2191 <https://github.com/vyperlang/vyper/pull/2191>`_)
+
+v0.2.5
+******
+
+Date released: 30-09-2020
+
+Non-breaking changes and improvements:
+
+- Improve exception on incorrect interface (`#2131 <https://github.com/vyperlang/vyper/pull/2131>`_)
+- Standalone binary preparation (`#2134 <https://github.com/vyperlang/vyper/pull/2134>`_)
+- Improve make freeze (`#2135 <https://github.com/vyperlang/vyper/pull/2135>`_)
+- Remove Excessive Scoping Rules on Local Variables (`#2166 <https://github.com/vyperlang/vyper/pull/2166>`_)
+- Optimize nonpayable check for contracts that do not accept ETH (`#2172 <https://github.com/vyperlang/vyper/pull/2172>`_)
+- Optimize safemath on division-by-zero with a literal divisor (`#2173 <https://github.com/vyperlang/vyper/pull/2173>`_)
+- Optimize multiple sequential memory-zeroings (`#2174 <https://github.com/vyperlang/vyper/pull/2174>`_)
+- Optimize size-limit checks for address and bool types (`#2175 <https://github.com/vyperlang/vyper/pull/2175>`_)
+
+Fixes:
+
+- Constant folding on lhs of assignments (`#2137 <https://github.com/vyperlang/vyper/pull/2137>`_)
+- ABI issue with bytes and string arrays inside tuples (`#2140 <https://github.com/vyperlang/vyper/pull/2140>`_)
+- Returning struct from a external function gives error (`#2143 <https://github.com/vyperlang/vyper/pull/2143>`_)
+- Error messages with struct display all members (`#2160 <https://github.com/vyperlang/vyper/pull/2160>`_)
+- The returned struct value from the external call doesn't get stored properly (`#2164 <https://github.com/vyperlang/vyper/pull/2164>`_)
+- Improved exception on invalid function-scoped assignment (`#2176 <https://github.com/vyperlang/vyper/pull/2176>`_)
+
+v0.2.4
+******
+
+Date released: 03-08-2020
+
+Non-breaking changes and improvements:
+
+- Improve EOF Exceptions (`#2115 <https://github.com/vyperlang/vyper/pull/2115>`_)
+- Improve exception messaging for type mismatches (`#2119 <https://github.com/vyperlang/vyper/pull/2119>`_)
+- Ignore trailing newline tokens (`#2120 <https://github.com/vyperlang/vyper/pull/2120>`_)
+
+Fixes:
+
+- Fix ABI translations for structs that are returned from functions (`#2114 <https://github.com/vyperlang/vyper/pull/2114>`_)
+- Raise when items that are not types are called (`#2118 <https://github.com/vyperlang/vyper/pull/2118>`_)
+- Ensure hex and decimal AST nodes are serializable (`#2123 <https://github.com/vyperlang/vyper/pull/2123>`_)
+
+v0.2.3
+******
+
+Date released: 16-07-2020
+
+Non-breaking changes and improvements:
+
+- Show contract names in raised exceptions (`#2103 <https://github.com/vyperlang/vyper/pull/2103>`_)
+- Adjust function offsets to not include decorators (`#2102 <https://github.com/vyperlang/vyper/pull/2102>`_)
+- Raise certain exception types immediately during module-scoped type checking (`#2101 <https://github.com/vyperlang/vyper/pull/2101>`_)
+
+Fixes:
+
+- Pop ``for`` loop values from stack prior to returning (`#2110 <https://github.com/vyperlang/vyper/pull/2110>`_)
+- Type checking non-literal array index values (`#2108 <https://github.com/vyperlang/vyper/pull/2108>`_)
+- Meaningful output during ``for`` loop type checking (`#2096 <https://github.com/vyperlang/vyper/pull/2096>`_)
+
+v0.2.2
+******
+
+Date released: 04-07-2020
+
+Fixes:
+
+- Do not fold exponentiation to a negative power (`#2089 <https://github.com/vyperlang/vyper/pull/2089>`_)
+- Add repr for mappings (`#2090 <https://github.com/vyperlang/vyper/pull/2090>`_)
+- Literals are only validated once (`#2093 <https://github.com/vyperlang/vyper/pull/2093>`_)
+
+v0.2.1
+******
+
+Date released: 03-07-2020
+
+This is a major breaking release of the Vyper compiler and language. It is also the first release following our versioning scheme (`#1887 <https://github.com/vyperlang/vyper/issues/1887>`_).
+
+Breaking changes:
+
+- ``@public`` and ``@private`` function decorators have been renamed to ``@external`` and ``@internal`` (VIP `#2065 <https://github.com/vyperlang/vyper/issues/2065>`_)
+- The ``@constant`` decorator has been renamed to ``@view`` (VIP `#2040 <https://github.com/vyperlang/vyper/issues/2040>`_)
+- Type units have been removed (VIP `#1881 <https://github.com/vyperlang/vyper/issues/1881>`_)
+- Event declaraion syntax now resembles that of struct declarations (VIP `#1864 <https://github.com/vyperlang/vyper/issues/1864>`_)
+- ``log`` is now a statement (VIP `#1864 <https://github.com/vyperlang/vyper/issues/1864>`_)
+- Mapping declaration syntax changed to ``HashMap[key_type, value_type]`` (VIP `#1969 <https://github.com/vyperlang/vyper/issues/1969>`_)
+- Interfaces are now declared via the ``interface`` keyword instead of ``contract`` (VIP `#1825 <https://github.com/vyperlang/vyper/issues/1825>`_)
+- ``bytes`` and ``string`` types are now written as ``Bytes`` and ``String`` (`#2080 <https://github.com/vyperlang/vyper/pull/2080>`_)
+- ``bytes`` and ``string`` literals must now be bytes or regular strings, respectively. They are no longer interchangeable. (VIP `#1876 <https://github.com/vyperlang/vyper/issues/1876>`_)
+- ``assert_modifiable`` has been removed, you can now directly perform assertions on calls (`#2050 <https://github.com/vyperlang/vyper/pull/2050>`_)
+- ``value`` is no longer an allowable variable name in a function input (VIP `#1877 <https://github.com/vyperlang/vyper/issues/1877>`_)
+- The ``slice`` builtin function expects ``uint256`` for the ``start`` and ``length`` args (VIP `#1986 <https://github.com/vyperlang/vyper/issues/1986>`_)
+- ``len`` return type is now ``uint256`` (VIP `#1979 <https://github.com/vyperlang/vyper/issues/1979>`_)
+- ``value`` and ``gas`` kwargs for external function calls must be given as ``uint256`` (VIP `#1878 <https://github.com/vyperlang/vyper/issues/1878>`_)
+- The ``outsize`` kwarg in ``raw_call`` has been renamed to ``max_outsize`` (`#1977 <https://github.com/vyperlang/vyper/pull/1977>`_)
+- The ``type`` kwarg in ``extract32`` has been renamed to ``output_type`` (`#2036 <https://github.com/vyperlang/vyper/pull/2036>`_)
+- Public array getters now use ``uint256`` for their input argument(s) (VIP `#1983 <https://github.com/vyperlang/vyper/issues/1983>`_)
+- Public struct getters now return all values of a struct (`#2064 <https://github.com/vyperlang/vyper/pull/2064>`_)
+- ``RLPList`` has been removed (VIP `#1866 <https://github.com/vyperlang/vyper/issues/1866>`_)
+
+
+The following non-breaking VIPs and features were implemented:
+
+- Implement boolean condition short circuiting (VIP `#1817 <https://github.com/vyperlang/vyper/issues/1817>`_)
+- Add the ``empty`` builtin function for zero-ing a value (`#1676 <https://github.com/vyperlang/vyper/pull/1676>`_)
+- Refactor of the compiler process resulting in an almost 5x performance boost! (`#1962 <https://github.com/vyperlang/vyper/pull/1962>`_)
+- Support ABI State Mutability Fields in Interface Definitions (VIP `#2042 <https://github.com/vyperlang/vyper/issues/2042>`_)
+- Support ``@pure`` decorator (VIP `#2041 <https://github.com/vyperlang/vyper/issues/2041>`_)
+- Overflow checks for exponentiation (`#2072 <https://github.com/vyperlang/vyper/pull/2072>`_)
+- Validate return data length via ``RETURNDATASIZE`` (`#2076 <https://github.com/vyperlang/vyper/pull/2076>`_)
+- Improved constant folding (`#1949 <https://github.com/vyperlang/vyper/pull/1949>`_)
+- Allow raise without reason string (VIP `#1902 <https://github.com/vyperlang/vyper/issues/1902>`_)
+- Make the type argument in ``method_id`` optional (VIP `#1980 <https://github.com/vyperlang/vyper/issues/1980>`_)
+- Hash complex types when used as indexed values in an event (`#2060 <https://github.com/vyperlang/vyper/pull/2060>`_)
+- Ease restrictions on calls to self (`#2059 <https://github.com/vyperlang/vyper/pull/2059>`_)
+- Remove ordering restrictions in module-scope of contract (`#2057 <https://github.com/vyperlang/vyper/pull/2057>`_)
+- ``raw_call`` can now be used to perform a ``STATICCALL`` (`#1973 <https://github.com/vyperlang/vyper/pull/1973>`_)
+- Optimize precompiles to use ``STATICCALL`` (`#1930 <https://github.com/vyperlang/vyper/pull/1930>`_)
+
+Some of the bug and stability fixes:
+
+- Arg clamping issue when using multidimensional arrays (`#2071 <https://github.com/vyperlang/vyper/pull/2071>`_)
+- Support calldata arrays with the ``in`` comparator (`#2070 <https://github.com/vyperlang/vyper/pull/2070>`_)
+- Prevent modification of a storage array during iteration via ``for`` loop (`#2028 <https://github.com/vyperlang/vyper/pull/2028>`_)
+- Fix memory length of revert string (`#1982 <https://github.com/vyperlang/vyper/pull/1982>`_)
+- Memory offset issue when returning tuples from private functions (`#1968 <https://github.com/vyperlang/vyper/pull/1968>`_)
+- Issue with arrays as default function arguments (`#2077 <https://github.com/vyperlang/vyper/pull/2077>`_)
+- Private function calls no longer generate a call signature (`#2058 <https://github.com/vyperlang/vyper/pull/2058>`_)
+
+Significant codebase refactor, thanks to (`@iamdefinitelyahuman <https://github.com/iamdefinitelyahuman>`_)!
+
+**NOTE**: ``v0.2.0`` was not used due to a conflict in PyPI with a previous release. Both tags ``v0.2.0`` and ``v0.2.1`` are identical.
 
 v0.1.0-beta.17
 **************

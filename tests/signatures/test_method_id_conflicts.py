@@ -5,72 +5,72 @@ from vyper.exceptions import StructureException
 
 FAILING_CONTRACTS = [
     """
-@public
-@constant
+@external
+@view
 def gsf():
     pass
 
-@public
-@constant
+@external
+@view
 def tgeo():
     pass
     """,
     """
-@public
-@constant
+@external
+@view
 def withdraw(a: uint256):
     pass
 
-@public
-@constant
+@external
+@view
 def OwnerTransferV7b711143(a: uint256):
     pass
     """,
     """
-@public
-@constant
+@external
+@view
 def withdraw(a: uint256):
     pass
 
-@public
-@constant
+@external
+@view
 def gsf():
     pass
 
-@public
-@constant
+@external
+@view
 def tgeo():
     pass
 
-@public
-@constant
+@external
+@view
 def OwnerTransferV7b711143(a: uint256):
     pass
     """,
     """
 # check collision between private method IDs
-@private
-@constant
+@internal
+@view
 def gfah(): pass
 
-@private
-@constant
+@internal
+@view
 def eexo(): pass
     """,
     """
 # check collision between private and public IDs
-@private
-@constant
+@internal
+@view
 def gfah(): pass
 
-@public
-@constant
+@external
+@view
 def eexo(): pass
-    """
+    """,
 ]
 
 
-@pytest.mark.parametrize('failing_contract_code', FAILING_CONTRACTS)
+@pytest.mark.parametrize("failing_contract_code", FAILING_CONTRACTS)
 def test_method_id_conflicts(failing_contract_code):
     with pytest.raises(StructureException):
         compiler.compile_code(failing_contract_code)

@@ -8,14 +8,12 @@ from vyper.exceptions import NatSpecSyntaxException
 from vyper.parser.global_context import GlobalContext
 from vyper.signatures import sig_utils
 
-SINGLE_FIELDS = ("title", "author", "notice", "dev")
+SINGLE_FIELDS = ("title", "author", "license", "notice", "dev")
 PARAM_FIELDS = ("param", "return")
 USERDOCS_FIELDS = ("notice",)
 
 
-def parse_natspec(
-    vyper_module: vy_ast.Module, global_ctx: GlobalContext,
-) -> Tuple[dict, dict]:
+def parse_natspec(vyper_module: vy_ast.Module, global_ctx: GlobalContext,) -> Tuple[dict, dict]:
     """
     Parses NatSpec documentation from a contract.
 
@@ -48,7 +46,7 @@ def parse_natspec(
         sigs = sig_utils.mk_single_method_identifier(node, global_ctx)
 
         if isinstance(node.returns, vy_ast.Tuple):
-            ret_len = len(node.returns.elts)
+            ret_len = len(node.returns.elements)
         elif node.returns:
             ret_len = 1
         else:
@@ -56,12 +54,14 @@ def parse_natspec(
 
         if sigs:
             args = tuple(i.arg for i in node.args.args)
-            fn_natspec = _parse_docstring(source, docstring, ("title",), args, ret_len)
+            invalid_fields = (
+                "title",
+                "license",
+            )
+            fn_natspec = _parse_docstring(source, docstring, invalid_fields, args, ret_len)
             for s in sigs:
                 if "notice" in fn_natspec:
-                    userdoc.setdefault("methods", {})[s] = {
-                        "notice": fn_natspec.pop("notice")
-                    }
+                    userdoc.setdefault("methods", {})[s] = {"notice": fn_natspec.pop("notice")}
                 if fn_natspec:
                     devdoc.setdefault("methods", {})[s] = fn_natspec
 
@@ -103,15 +103,11 @@ def _parse_docstring(
             )
 
         if not value or value.startswith("@"):
-            raise NatSpecSyntaxException(
-                f"No description given for tag '@{tag}'", *err_args
-            )
+            raise NatSpecSyntaxException(f"No description given for tag '@{tag}'", *err_args)
 
         if tag not in PARAM_FIELDS:
             if tag in natspec:
-                raise NatSpecSyntaxException(
-                    f"Duplicate NatSpec field '@{tag}'", *err_args
-                )
+                raise NatSpecSyntaxException(f"Duplicate NatSpec field '@{tag}'", *err_args)
             natspec[translate_map.get(tag, tag)] = " ".join(value.split())
             continue
 
@@ -126,35 +122,26 @@ def _parse_docstring(
                     f"No description given for parameter '{value}'", *err_args
                 ) from exc
             if key not in params:
-                raise NatSpecSyntaxException(
-                    f"Method has no parameter '{key}'", *err_args
-                )
+                raise NatSpecSyntaxException(f"Method has no parameter '{key}'", *err_args)
 
         elif tag == "returns":
             if not return_length:
-                raise NatSpecSyntaxException(
-                    f"Method does not return any values", *err_args
-                )
+                raise NatSpecSyntaxException("Method does not return any values", *err_args)
             if len(natspec["returns"]) >= return_length:
                 raise NatSpecSyntaxException(
-                    f"Number of documented return values exceeds actual number",
-                    *err_args,
+                    "Number of documented return values exceeds actual number", *err_args,
                 )
             key = f"_{len(natspec['returns'])}"
 
         if key in natspec[tag]:
-            raise NatSpecSyntaxException(
-                f"Parameter '{key}' documented more than once", *err_args
-            )
+            raise NatSpecSyntaxException(f"Parameter '{key}' documented more than once", *err_args)
         natspec[tag][key] = " ".join(value.split())
 
     if not natspec:
         natspec["notice"] = " ".join(docstring.split())
     elif not docstring.strip().startswith("@"):
         raise NatSpecSyntaxException(
-            "NatSpec docstring opens with untagged comment",
-            source,
-            *line_no.offset_to_line(start),
+            "NatSpec docstring opens with untagged comment", source, *line_no.offset_to_line(start),
         )
 
     return natspec

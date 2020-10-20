@@ -1,7 +1,5 @@
-.. index:: type
-
 Environment Variables and Constants
-***********************************
+###################################
 
 .. _types-env-vars:
 
@@ -30,7 +28,7 @@ Name                 Type             Value
 
 .. note::
 
-    ``msg.sender`` and ``msg.value`` can only be accessed from public functions. If you require these values within a private function they must be passed as parameters.
+    ``msg.sender`` and ``msg.value`` can only be accessed from external functions. If you require these values within a private function they must be passed as parameters.
 
 .. _constants-self:
 
@@ -55,29 +53,29 @@ Accessing State Variables
 
     state_var: uint256
 
-    @public
+    @external
     def set_var(value: uint256) -> bool:
         self.state_var = value
         return True
 
-    @public
-    @constant
+    @external
+    @view
     def get_var() -> uint256:
         return self.state_var
 
 
-Calling Private Functions
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Calling Internal Functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``self`` is also used to call :ref:`private functions<structure-functions-private>` within a contract:
+``self`` is also used to call :ref:`internal functions<structure-functions-internal>` within a contract:
 
 .. code-block:: python
 
-    @private
+    @internal
     def _times_two(amount: uint256) -> uint256:
         return amount * 2
 
-    @public
+    @external
     def calculate(amount: uint256) -> uint256:
         return self._times_two(amount)
 
@@ -110,6 +108,6 @@ Custom constants can be defined at a global level in Vyper. To define a constant
     TOTAL_SUPPLY: constant(uint256) = 10000000
     total_supply: public(uint256)
 
-    @public
+    @external
     def __init__():
         self.total_supply = TOTAL_SUPPLY

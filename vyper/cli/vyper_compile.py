@@ -5,16 +5,20 @@ import sys
 import warnings
 from collections import OrderedDict
 from pathlib import Path
-from typing import Dict, Iterable, Iterator, Sequence, Set, TypeVar
+from typing import Dict, Iterable, Iterator, Set, TypeVar
 
 import vyper
+from vyper.cli import vyper_json
+from vyper.cli.utils import (
+    extract_file_interface_imports,
+    get_interface_file_path,
+)
 from vyper.opcodes import DEFAULT_EVM_VERSION, EVM_VERSIONS
 from vyper.parser import parser_utils
 from vyper.settings import VYPER_TRACEBACK_LIMIT
-from vyper.signatures.interface import extract_file_interface_imports
 from vyper.typing import ContractCodes, ContractPath, OutputFormats
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 format_options_help = """Format to print, one or more of:
 bytecode (default) - Deployable bytecode
@@ -35,13 +39,13 @@ ir                 - Intermediate representation in LLL
 """
 
 combined_json_outputs = [
-    'bytecode',
-    'bytecode_runtime',
-    'abi',
-    'source_map',
-    'method_identifiers',
-    'userdoc',
-    'devdoc'
+    "bytecode",
+    "bytecode_runtime",
+    "abi",
+    "source_map",
+    "method_identifiers",
+    "userdoc",
+    "devdoc",
 ]
 
 
@@ -50,48 +54,48 @@ def _parse_cli_args():
 
 
 def _parse_args(argv):
+    warnings.simplefilter("always")
 
-    warnings.simplefilter('always')
+    if "--standard-json" in argv:
+        argv.remove("--standard-json")
+        vyper_json._parse_args(argv)
+        return
 
     parser = argparse.ArgumentParser(
-        description='Pythonic Smart Contract Language for the EVM',
-        formatter_class=argparse.RawTextHelpFormatter
+        description="Pythonic Smart Contract Language for the EVM",
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     parser.add_argument(
-        'input_files',
-        help='Vyper sourcecode to compile',
-        nargs='+',
+        "input_files", help="Vyper sourcecode to compile", nargs="+",
     )
     parser.add_argument(
-        '--version',
-        action='version',
-        version=f'{vyper.__version__}+commit.{vyper.__commit__}',
+        "--version", action="version", version=f"{vyper.__version__}+commit.{vyper.__commit__}",
     )
     parser.add_argument(
-        '--show-gas-estimates',
-        help='Show gas estimates in ir output mode.',
-        action="store_true",
+        "--show-gas-estimates", help="Show gas estimates in ir output mode.", action="store_true",
     )
     parser.add_argument(
-        '-f',
-        help=format_options_help,
-        default='bytecode', dest='format',
+        "-f", help=format_options_help, default="bytecode", dest="format",
     )
     parser.add_argument(
-        '--evm-version',
-        help=f'Select desired EVM version (default {DEFAULT_EVM_VERSION})',
+        "--evm-version",
+        help=f"Select desired EVM version (default {DEFAULT_EVM_VERSION})",
         choices=list(EVM_VERSIONS),
-        default=DEFAULT_EVM_VERSION, dest='evm_version',
+        default=DEFAULT_EVM_VERSION,
+        dest="evm_version",
     )
     parser.add_argument(
-        '--traceback-limit',
-        help='Set the traceback limit for error messages reported by the compiler',
+        "--traceback-limit",
+        help="Set the traceback limit for error messages reported by the compiler",
         type=int,
     )
     parser.add_argument(
-        '-p',
-        help='Set the root path for contract imports',
-        default='.', dest='root_folder'
+        "--standard-json",
+        help="Switch to standard JSON mode. Use `--standard-json -h` for available options.",
+        action="store_true",
+    )
+    parser.add_argument(
+        "-p", help="Set the root path for contract imports", default=".", dest="root_folder"
     )
 
     args = parser.parse_args(argv)
@@ -106,7 +110,7 @@ def _parse_args(argv):
         # an error occurred in a Vyper source file.
         sys.tracebacklimit = 0
 
-    output_formats = tuple(uniq(args.format.split(',')))
+    output_formats = tuple(uniq(args.format.split(",")))
 
     compiled = compile_files(
         args.input_files,
@@ -116,7 +120,7 @@ def _parse_args(argv):
         args.evm_version,
     )
 
-    if output_formats == ('combined_json',):
+    if output_formats == ("combined_json",):
         print(json.dumps(compiled))
         return
 
@@ -143,7 +147,7 @@ def uniq(seq: Iterable[T]) -> Iterator[T]:
 
 
 def exc_handler(contract_path: ContractPath, exception: Exception) -> None:
-    print(f'Error compiling: {contract_path}')
+    print(f"Error compiling: {contract_path}")
     raise exception
 
 
@@ -159,12 +163,11 @@ def get_interface_codes(root_path: Path, contract_sources: ContractCodes) -> Dic
         for interface_name, interface_path in interface_codes.items():
 
             base_paths = [parent_path]
-            if not interface_path.startswith('.') and root_path.joinpath(file_path).exists():
+            if not interface_path.startswith(".") and root_path.joinpath(file_path).exists():
                 base_paths.append(root_path)
-            elif (
-                interface_path.startswith('../') and
-                len(Path(file_path).parent.parts) < Path(interface_path).parts.count('..')
-            ):
+            elif interface_path.startswith("../") and len(Path(file_path).parent.parts) < Path(
+                interface_path
+            ).parts.count(".."):
                 raise FileNotFoundError(
                     f"{file_path} - Cannot perform relative import outside of base folder"
                 )
@@ -172,35 +175,24 @@ def get_interface_codes(root_path: Path, contract_sources: ContractCodes) -> Dic
             valid_path = get_interface_file_path(base_paths, interface_path)
             with valid_path.open() as fh:
                 code = fh.read()
-                if valid_path.suffix == '.json':
+                if valid_path.suffix == ".json":
                     interfaces[file_path][interface_name] = {
-                        'type': 'json',
-                        'code': json.loads(code.encode())
+                        "type": "json",
+                        "code": json.loads(code.encode()),
                     }
                 else:
-                    interfaces[file_path][interface_name] = {
-                        'type': 'vyper',
-                        'code': code
-                    }
+                    interfaces[file_path][interface_name] = {"type": "vyper", "code": code}
 
     return interfaces
 
 
-def get_interface_file_path(base_paths: Sequence, import_path: str) -> Path:
-    relative_path = Path(import_path)
-    for path in base_paths:
-        file_path = path.joinpath(relative_path)
-        suffix = next((i for i in ('.vy', '.json') if file_path.with_suffix(i).exists()), None)
-        if suffix:
-            return file_path.with_suffix(suffix)
-    raise FileNotFoundError(f" Cannot locate interface '{import_path}{{.vy,.json}}'")
-
-
-def compile_files(input_files: Iterable[str],
-                  output_formats: OutputFormats,
-                  root_folder: str = '.',
-                  show_gas_estimates: bool = False,
-                  evm_version: str = DEFAULT_EVM_VERSION) -> OrderedDict:
+def compile_files(
+    input_files: Iterable[str],
+    output_formats: OutputFormats,
+    root_folder: str = ".",
+    show_gas_estimates: bool = False,
+    evm_version: str = DEFAULT_EVM_VERSION,
+) -> OrderedDict:
 
     if show_gas_estimates:
         parser_utils.LLLnode.repr_show_gas = True
@@ -220,17 +212,13 @@ def compile_files(input_files: Iterable[str],
             contract_sources[file_str] = fh.read()
 
     show_version = False
-    if 'combined_json' in output_formats:
+    if "combined_json" in output_formats:
         if len(output_formats) > 1:
             raise ValueError("If using combined_json it must be the only output format requested")
         output_formats = combined_json_outputs
         show_version = True
 
-    translate_map = {
-        'abi_python': 'abi',
-        'json': 'abi',
-        'ast': 'ast_dict'
-    }
+    translate_map = {"abi_python": "abi", "json": "abi", "ast": "ast_dict"}
     final_formats = [translate_map.get(i, i) for i in output_formats]
 
     compiler_data = vyper.compile_codes(
@@ -241,6 +229,10 @@ def compile_files(input_files: Iterable[str],
         evm_version=evm_version,
     )
     if show_version:
-        compiler_data['version'] = vyper.__version__
+        compiler_data["version"] = vyper.__version__
 
     return compiler_data
+
+
+if __name__ == "__main__":
+    _parse_args(sys.argv[1:])

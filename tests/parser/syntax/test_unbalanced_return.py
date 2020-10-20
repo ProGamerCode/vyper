@@ -1,23 +1,29 @@
 import pytest
-from pytest import raises
 
 from vyper import compiler
-from vyper.exceptions import StructureException
+from vyper.exceptions import FunctionDeclarationException, StructureException
 
 fail_list = [
-    """
-@public
+    (
+        """
+@external
 def foo() -> int128:
     pass
     """,
-    """
-@public
+        FunctionDeclarationException,
+    ),
+    (
+        """
+@external
 def foo() -> int128:
     if False:
         return 123
     """,
-    """
-@public
+        FunctionDeclarationException,
+    ),
+    (
+        """
+@external
 def test() -> int128:
     if 1 == 1 :
         return 1
@@ -26,44 +32,55 @@ def test() -> int128:
     else:
         assert False
     """,
-    """
-@private
+        FunctionDeclarationException,
+    ),
+    (
+        """
+@internal
 def valid_address(sender: address) -> bool:
     selfdestruct(sender)
     return True
     """,
-    """
-@private
+        StructureException,
+    ),
+    (
+        """
+@internal
 def valid_address(sender: address) -> bool:
     selfdestruct(sender)
     a: address = sender
     """,
-    """
-@private
+        StructureException,
+    ),
+    (
+        """
+@internal
 def valid_address(sender: address) -> bool:
     if sender == ZERO_ADDRESS:
         selfdestruct(sender)
         _sender: address = sender
     else:
         return False
-    """
+    """,
+        StructureException,
+    ),
 ]
 
 
-@pytest.mark.parametrize('bad_code', fail_list)
-def test_return_mismatch(bad_code):
-    with raises(StructureException):
+@pytest.mark.parametrize("bad_code,exc", fail_list)
+def test_return_mismatch(bad_code, exc):
+    with pytest.raises(exc):
         compiler.compile_code(bad_code)
 
 
 valid_list = [
     """
-@public
+@external
 def foo() -> int128:
     return 123
     """,
     """
-@public
+@external
 def foo() -> int128:
     if True:
         return 123
@@ -71,7 +88,7 @@ def foo() -> int128:
         raise "test"
     """,
     """
-@public
+@external
 def foo() -> int128:
     if False:
         return 123
@@ -79,14 +96,14 @@ def foo() -> int128:
         selfdestruct(msg.sender)
     """,
     """
-@public
+@external
 def foo() -> int128:
     if False:
         return 123
     return 333
     """,
     """
-@public
+@external
 def test() -> int128:
     if 1 == 1 :
         return 1
@@ -95,7 +112,7 @@ def test() -> int128:
         return 0
     """,
     """
-@public
+@external
 def test() -> int128:
     x: bytes32 = EMPTY_BYTES32
     if False:
@@ -108,10 +125,10 @@ def test() -> int128:
         x = keccak256(x)
         return 1
     return 1
-    """
+    """,
 ]
 
 
-@pytest.mark.parametrize('good_code', valid_list)
+@pytest.mark.parametrize("good_code", valid_list)
 def test_return_success(good_code):
     assert compiler.compile_code(good_code) is not None

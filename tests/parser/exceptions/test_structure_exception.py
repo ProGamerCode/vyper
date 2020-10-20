@@ -1,192 +1,98 @@
 import pytest
-from pytest import raises
 
 from vyper import compiler
-from vyper.exceptions import StructureException, SyntaxException
+from vyper.exceptions import StructureException
 
 fail_list = [
     """
 x[5] = 4
     """,
     """
-@public
-def foo(): pass
-
-x: int128
-    """,
-    """
 send(0x1234567890123456789012345678901234567890, 5)
     """,
     """
 send(0x1234567890123456789012345678901234567890, 5)
     """,
     """
-@public
-def foo():
-    x: int128 = 5
-    for i in range(x):
-        pass
-    """,
-    """
-@public
-def foo(x: int128):
-    y: int128 = 7
-    for i in range(x, x + y):
-        pass
-    """,
-    """
 x: int128
-@public
-@const
+@external
+@view(123)
 def foo() -> int128:
     pass
     """,
     """
-x: int128
-@public
-@monkeydoodledoo
-def foo() -> int128:
-    pass
-    """,
-    """
-x: int128
-@public
-@constant(123)
-def foo() -> int128:
-    pass
-    """,
-    """
-bar: int128[3]
-@public
-def foo():
-    self.bar = []
-    """,
-    """
-@public
-def foo():
-    x: bytes[4] = raw_call(0x1234567890123456789012345678901234567890, max_outsize=4)
-    """,
-    """
-@public
-def foo():
-    x: bytes[4] = create_forwarder_to(0x1234567890123456789012345678901234567890, b"cow")
-    """,
-    """
-@public
-def foo():
-    x: bytes[4] = raw_call(
-        0x1234567890123456789012345678901234567890, b"cow", gas=111111, max_outsize=4, moose=9
-    )
-    """,
-    """
-@public
-def foo():
-    x: bytes[4] = create_forwarder_to(0x1234567890123456789012345678901234567890, max_outsize=4)
-    """,
-    """
-x: public()
-    """,
-    """
-@public
-def foo():
-    raw_log([], b"cow", "dog")
-    """,
-    """
-@public
-def foo():
-    raw_log(b"cow", b"dog")
-    """,
-    """
-@public
+@external
 def foo():
     throe
     """,
     """
-@public
+@external
 def foo() -> int128:
     x: address = 0x1234567890123456789012345678901234567890
     return x.balance()
     """,
     """
-@public
+@external
 def foo() -> int128:
     x: address = 0x1234567890123456789012345678901234567890
     return x.codesize()
     """,
     """
-@public
-def foo():
-    x = concat(b"")
-    """,
-    """
-def foo() -> int128:
-    q:int128 = 111
-    return q
-    """,
-    """
-q:int128 = 111
-def foo() -> int128:
-    return self.q
-    """,
-    """
-contract F:
-    def foo(): constant
-struct S:
-    x: int128
-    """,
-    """
-g: int128
-struct S:
-    x: int128
-    """,
-    """
-struct S:
-    x: int128
-s: S = S({x: int128}, 1)
-    """,
-    """
-struct S:
-    x: int128
-s: S = S(1)
-    """,
-    """
-struct S:
-    x: int128
-s: S = S()
-    """,
-    """
-@public
+@external
 @nonreentrant("B")
 @nonreentrant("C")
 def double_nonreentrant():
     pass
+    """,
     """
+struct X:
+    int128[5]: int128[7]
+    """,
+    """
+b: HashMap[(int128, decimal), int128]
+    """,
+    """
+@external
+@nonreentrant("B")
+@nonreentrant("C")
+def double_nonreentrant():
+    pass
+    """,
+    """
+x: 5
+    """,
+    """
+x: Bytes <= wei
+    """,
+    """
+x: String <= 33
+    """,
 ]
 
 
-@pytest.mark.parametrize('bad_code', fail_list)
+@pytest.mark.parametrize("bad_code", fail_list)
 def test_invalid_type_exception(bad_code):
-    with raises(StructureException):
+    with pytest.raises(StructureException):
         compiler.compile_code(bad_code)
 
 
 del_fail_list = [
     """
-b: map(int128, bytes32)
-@public
-def foo():
-    del self.b[0], self.b[1]
+x: int128(address)
     """,
     """
-@public
-def foo():
-    b: int128
-    del b
+x: int128(2 ** 2)
+    """,
+    """
+# invalid interface declaration (pass)
+interface Bar:
+    def set_lucky(arg1: int128): pass
+    """,
+    """
+interface Bar:
+# invalud interface declaration (assignment)
+    def set_lucky(arg1: int128):
+        arg1 = 1
+        arg1 = 3
     """,
 ]
-
-
-@pytest.mark.parametrize('bad_code', del_fail_list)
-def test_syntax_exception(bad_code):
-    with raises(SyntaxException):
-        compiler.compile_code(bad_code)

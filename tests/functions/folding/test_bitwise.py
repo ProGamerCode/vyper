@@ -11,11 +11,11 @@ st_uint256 = st.integers(min_value=0, max_value=2 ** 256 - 1)
 @pytest.mark.fuzzing
 @settings(max_examples=50, deadline=1000)
 @given(a=st_uint256, b=st_uint256)
-@pytest.mark.parametrize('fn_name', ['bitwise_and', 'bitwise_or', 'bitwise_xor'])
+@pytest.mark.parametrize("fn_name", ["bitwise_and", "bitwise_or", "bitwise_xor"])
 def test_bitwise(get_contract, a, b, fn_name):
 
     source = f"""
-@public
+@external
 def foo(a: uint256, b: uint256) -> uint256:
     return {fn_name}(a, b)
     """
@@ -33,8 +33,8 @@ def foo(a: uint256, b: uint256) -> uint256:
 @given(value=st_uint256)
 def test_bitwise_not(get_contract, value):
 
-    source = f"""
-@public
+    source = """
+@external
 def foo(a: uint256) -> uint256:
     return bitwise_not(a)
     """
@@ -52,8 +52,8 @@ def foo(a: uint256) -> uint256:
 @given(value=st_uint256, steps=st.integers(min_value=-256, max_value=256))
 def test_shift(get_contract, value, steps):
 
-    source = f"""
-@public
+    source = """
+@external
 def foo(a: uint256, b: int128) -> uint256:
     return shift(a, b)
     """

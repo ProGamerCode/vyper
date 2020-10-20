@@ -19,10 +19,10 @@ struct S:
     a: bool
     b: int128
 
-contract ERC20Contract:
-    def name() -> string[64]: constant
+interface ERC20Contract:
+    def name() -> String[64]: view
 
-@public
+@external
 def foo() -> int128:
     return -(-(-1))
 """
@@ -53,8 +53,8 @@ def test_it_annotates_ast_with_class_types():
     struct_def = contract_ast.body[0]
     contract_def = contract_ast.body[1]
 
-    assert struct_def.class_type == 'struct'
-    assert contract_def.class_type == 'contract'
+    assert struct_def.ast_type == "StructDef"
+    assert contract_def.ast_type == "InterfaceDef"
 
 
 def test_it_rewrites_unary_subtractions():

@@ -4,7 +4,7 @@ from vyper.exceptions import SyntaxException
 
 
 def test_semicolon_prohibited(get_contract):
-    code = """@public
+    code = """@external
 def test() -> int128:
     a: int128 = 1; b: int128 = 2
     return a + b
@@ -16,11 +16,11 @@ def test() -> int128:
 
 def test_valid_semicolons(get_contract):
     code = """
-@public
+@external
 def test() -> int128:
     a: int128 = 1
     b: int128 = 2
-    s: bytes[300] = "this should not be a problem; because it is in a string"
+    s: String[300] = "this should not be a problem; because it is in a string"
     s = \"\"\"this should not be a problem; because it's in a string\"\"\"
     s = 'this should not be a problem;;; because it\\\'s in a string'
     s = '''this should not ; \'cause it\'s in a string'''
@@ -33,18 +33,18 @@ def test() -> int128:
 
 def test_external_contract_definition_alias(get_contract):
     contract_1 = """
-@public
+@external
 def bar() -> int128:
     return 1
     """
 
     contract_2 = """
-contract Bar:
-    def bar() -> int128: modifying
+interface Bar:
+    def bar() -> int128: nonpayable
 
 bar_contract: Bar
 
-@public
+@external
 def foo(contract_address: address) -> int128:
     self.bar_contract = Bar(contract_address)
     return self.bar_contract.bar()
@@ -57,10 +57,11 @@ def foo(contract_address: address) -> int128:
 
 def test_version_pragma(get_contract):
     from vyper import __version__
+
     code = f"""
 # @version {__version__}
 
-@public
+@external
 def test():
     pass
     """
@@ -71,7 +72,7 @@ def test_version_empty_version(assert_compile_failed, get_contract):
     code = """
 #@version
 
-@public
+@external
 def test():
     pass
     """
@@ -82,7 +83,7 @@ def test_version_empty_version_mismatch(assert_compile_failed, get_contract):
     code = """
 # @version 9.9.9
 
-@public
+@external
 def test():
     pass
     """
@@ -93,7 +94,7 @@ def test_version_empty_invalid_version_string(assert_compile_failed, get_contrac
     code = """
 # @version hello
 
-@public
+@external
 def test():
     pass
     """
@@ -102,7 +103,7 @@ def test():
 
 def test_unbalanced_parens(assert_compile_failed, get_contract):
     code = """
-@public
+@external
 def foo():
     convert(
     """

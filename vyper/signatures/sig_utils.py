@@ -5,16 +5,13 @@ from vyper.signatures.function_signature import FunctionSignature
 
 
 # Generate default argument function signatures.
-def generate_default_arg_sigs(code, contracts, global_ctx):
+def generate_default_arg_sigs(code, interfaces, global_ctx):
     # generate all sigs, and attach.
     total_default_args = len(code.args.defaults)
     if total_default_args == 0:
         return [
             FunctionSignature.from_definition(
-                code,
-                sigs=contracts,
-                custom_structs=global_ctx._structs,
-                constants=global_ctx._constants
+                code, sigs=interfaces, custom_structs=global_ctx._structs,
             )
         ]
     base_args = code.args.args[:-total_default_args]
@@ -38,10 +35,7 @@ def generate_default_arg_sigs(code, contracts, global_ctx):
             if val is True:
                 new_code.args.args.append(default_args[idx])
         sig = FunctionSignature.from_definition(
-            new_code,
-            sigs=contracts,
-            custom_structs=global_ctx._structs,
-            constants=global_ctx._constants
+            new_code, sigs=interfaces, custom_structs=global_ctx._structs,
         )
         default_sig_strs.append(sig.sig)
         sig_fun_defs.append(sig)
@@ -70,12 +64,9 @@ def mk_full_signature(global_ctx, sig_formatter=None):
     # Produce function signatures.
     for code in global_ctx._defs:
         sig = FunctionSignature.from_definition(
-            code,
-            sigs=global_ctx._contracts,
-            custom_structs=global_ctx._structs,
-            constants=global_ctx._constants
+            code, sigs=global_ctx._contracts, custom_structs=global_ctx._structs,
         )
-        if not sig.private:
+        if not sig.internal:
             default_sigs = generate_default_arg_sigs(code, global_ctx._contracts, global_ctx)
             for s in default_sigs:
                 o.append(sig_formatter(s))
@@ -94,12 +85,9 @@ def mk_method_identifiers(global_ctx):
 def mk_single_method_identifier(code, global_ctx):
     identifiers = {}
     sig = FunctionSignature.from_definition(
-        code,
-        sigs=global_ctx._contracts,
-        custom_structs=global_ctx._structs,
-        constants=global_ctx._constants,
+        code, sigs=global_ctx._contracts, custom_structs=global_ctx._structs,
     )
-    if not sig.private:
+    if not sig.internal:
         default_sigs = generate_default_arg_sigs(code, global_ctx._contracts, global_ctx)
         for s in default_sigs:
             identifiers[s.sig] = hex(s.method_id)

@@ -1,66 +1,70 @@
+import pytest
+
+pytestmark = pytest.mark.usefixtures("memory_mocker")
+
 
 def test_string_return(get_contract_with_gas_estimation):
     code = """
-@public
-def testb() -> string[100]:
-    a: string[100] = "test return"
+@external
+def testb() -> String[100]:
+    a: String[100] = "test return"
     return a
 
-@public
-def testa(inp: string[100]) -> string[100]:
+@external
+def testa(inp: String[100]) -> String[100]:
     return inp
     """
 
     c = get_contract_with_gas_estimation(code)
 
-    assert c.testa('meh') == "meh"
+    assert c.testa("meh") == "meh"
     assert c.testb() == "test return"
 
 
 def test_string_concat(get_contract_with_gas_estimation):
     code = """
-@public
-def testb(inp: string[10]) -> string[128]:
-    a: string[100] = "return message:"
-    b: string[128] = concat(a, " ", inp)
+@external
+def testb(inp: String[10]) -> String[128]:
+    a: String[100] = "return message:"
+    b: String[128] = concat(a, " ", inp)
     return b
 
-@public
-def testa(inp: string[10]) -> string[160]:
-    a: string[100] = "<-- return message"
+@external
+def testa(inp: String[10]) -> String[160]:
+    a: String[100] = "<-- return message"
     return concat("Funny ", inp, " ", inp, a)
     """
 
     c = get_contract_with_gas_estimation(code)
 
-    assert c.testb('bob') == "return message: bob"
-    assert c.testa('foo') == "Funny foo foo<-- return message"
+    assert c.testb("bob") == "return message: bob"
+    assert c.testa("foo") == "Funny foo foo<-- return message"
 
 
 def test_basic_long_string_as_keys(get_contract, w3):
     code = """
-mapped_string: map(string[34], int128)
+mapped_string: HashMap[String[34], int128]
 
-@public
-def set(k: string[34], v: int128):
+@external
+def set(k: String[34], v: int128):
     self.mapped_string[k] = v
 
-@public
-def get(k: string[34]) -> int128:
+@external
+def get(k: String[34]) -> int128:
     return self.mapped_string[k]
     """
 
     c = get_contract(code)
 
-    c.set(b"a" * 34, 6789, transact={'gas': 10**6})
+    c.set(b"a" * 34, 6789, transact={"gas": 10 ** 6})
 
     assert c.get(b"a" * 34) == 6789
 
 
 def test_string_slice(get_contract_with_gas_estimation, assert_tx_failed):
     test_slice4 = """
-@public
-def foo(inp: string[10], start: int128, _len: int128) -> string[10]:
+@external
+def foo(inp: String[10], start: uint256, _len: uint256) -> String[10]:
     return slice(inp, start, _len)
     """
 
@@ -80,19 +84,19 @@ def foo(inp: string[10], start: int128, _len: int128) -> string[10]:
 
 def test_private_string(get_contract_with_gas_estimation):
     private_test_code = """
-greeting: public(string[100])
+greeting: public(String[100])
 
-@public
+@external
 def __init__():
     self.greeting = "Hello "
 
-@private
-def construct(greet: string[100]) -> string[200]:
+@internal
+def construct(greet: String[100]) -> String[200]:
     return concat(self.greeting, greet)
 
-@public
-def hithere(name: string[100]) -> string[200]:
-    d: string[200] = self.construct(name)
+@external
+def hithere(name: String[100]) -> String[200]:
+    d: String[200] = self.construct(name)
     return d
     """
 
@@ -103,15 +107,18 @@ def hithere(name: string[100]) -> string[200]:
 
 def test_logging_extended_string(get_contract_with_gas_estimation, get_logs):
     code = """
-MyLog: event({arg1: int128, arg2: string[64], arg3: int128})
+event MyLog:
+    arg1: int128
+    arg2: String[64]
+    arg3: int128
 
-@public
+@external
 def foo():
-    log.MyLog(667788, 'hellohellohellohellohellohellohellohellohello', 334455)
+    log MyLog(667788, 'hellohellohellohellohellohellohellohellohello', 334455)
     """
 
     c = get_contract_with_gas_estimation(code)
-    log = get_logs(c.foo(transact={}), c, 'MyLog')
+    log = get_logs(c.foo(transact={}), c, "MyLog")
 
     assert log[0].args.arg1 == 667788
     assert log[0].args.arg2 == "hello" * 9
@@ -120,20 +127,20 @@ def foo():
 
 def test_tuple_return_external_contract_call_string(get_contract_with_gas_estimation):
     contract_1 = """
-@public
-def out_literals() -> (int128, address, string[10]):
+@external
+def out_literals() -> (int128, address, String[10]):
     return 1, 0x0000000000000000000000000000000000000123, "random"
     """
 
     contract_2 = """
-contract Test:
-    def out_literals() -> (int128, address, string[10]) : constant
+interface Test:
+    def out_literals() -> (int128, address, String[10]) : view
 
-@public
-def test(addr: address) -> (int128, address, string[10]):
+@external
+def test(addr: address) -> (int128, address, String[10]):
     a: int128 = 0
     b: address = ZERO_ADDRESS
-    c: string[10] = ""
+    c: String[10] = ""
     (a, b, c) = Test(addr).out_literals()
     return a, b,c
     """
@@ -147,11 +154,11 @@ def test(addr: address) -> (int128, address, string[10]):
 def test_default_arg_string(get_contract_with_gas_estimation):
 
     code = """
-@public
-def test(a: uint256, b: string[50] = "foo") -> bytes[100]:
+@external
+def test(a: uint256, b: String[50] = "foo") -> Bytes[100]:
     return concat(
         convert(a, bytes32),
-        convert(b, bytes[50])
+        convert(b, Bytes[50])
     )
     """
 
@@ -163,117 +170,117 @@ def test(a: uint256, b: string[50] = "foo") -> bytes[100]:
 
 def test_string_equality(get_contract_with_gas_estimation):
     code = """
-_compA: string[100]
-_compB: string[100]
+_compA: String[100]
+_compB: String[100]
 
-@public
+@external
 def equal_true() -> bool:
-    compA: string[100] = "The quick brown fox jumps over the lazy dog"
-    compB: string[100] = "The quick brown fox jumps over the lazy dog"
+    compA: String[100] = "The quick brown fox jumps over the lazy dog"
+    compB: String[100] = "The quick brown fox jumps over the lazy dog"
     return compA == compB
 
-@public
+@external
 def equal_false() -> bool:
-    compA: string[100] = "The quick brown fox jumps over the lazy dog"
-    compB: string[100] = "The quick brown fox jumps over the lazy hog"
+    compA: String[100] = "The quick brown fox jumps over the lazy dog"
+    compB: String[100] = "The quick brown fox jumps over the lazy hog"
     return compA == compB
 
-@public
+@external
 def not_equal_true() -> bool:
-    compA: string[100] = "The quick brown fox jumps over the lazy dog"
-    compB: string[100] = "The quick brown fox jumps over the lazy hog"
+    compA: String[100] = "The quick brown fox jumps over the lazy dog"
+    compB: String[100] = "The quick brown fox jumps over the lazy hog"
     return compA != compB
 
-@public
+@external
 def not_equal_false() -> bool:
-    compA: string[100] = "The quick brown fox jumps over the lazy dog"
-    compB: string[100] = "The quick brown fox jumps over the lazy dog"
+    compA: String[100] = "The quick brown fox jumps over the lazy dog"
+    compB: String[100] = "The quick brown fox jumps over the lazy dog"
     return compA != compB
 
-@public
+@external
 def literal_equal_true() -> bool:
     return "The quick brown fox jumps over the lazy dog" == \
     "The quick brown fox jumps over the lazy dog"
 
-@public
+@external
 def literal_equal_false() -> bool:
     return "The quick brown fox jumps over the lazy dog" == \
     "The quick brown fox jumps over the lazy hog"
 
-@public
+@external
 def literal_not_equal_true() -> bool:
     return "The quick brown fox jumps over the lazy dog" != \
     "The quick brown fox jumps over the lazy hog"
 
-@public
+@external
 def literal_not_equal_false() -> bool:
     return "The quick brown fox jumps over the lazy dog" != \
     "The quick brown fox jumps over the lazy dog"
 
-@public
+@external
 def storage_equal_true() -> bool:
     self._compA = "The quick brown fox jumps over the lazy dog"
     self._compB = "The quick brown fox jumps over the lazy dog"
     return self._compA == self._compB
 
-@public
+@external
 def storage_equal_false() -> bool:
     self._compA = "The quick brown fox jumps over the lazy dog"
     self._compB = "The quick brown fox jumps over the lazy hog"
     return self._compA == self._compB
 
-@public
+@external
 def storage_not_equal_true() -> bool:
     self._compA = "The quick brown fox jumps over the lazy dog"
     self._compB = "The quick brown fox jumps over the lazy hog"
     return self._compA != self._compB
 
-@public
+@external
 def storage_not_equal_false() -> bool:
     self._compA = "The quick brown fox jumps over the lazy dog"
     self._compB = "The quick brown fox jumps over the lazy dog"
     return self._compA != self._compB
 
-@public
-def string_compare_equal(str1: string[100], str2: string[100]) -> bool:
+@external
+def string_compare_equal(str1: String[100], str2: String[100]) -> bool:
     return str1 == str2
 
-@public
-def string_compare_not_equal(str1: string[100], str2: string[100]) -> bool:
+@external
+def string_compare_not_equal(str1: String[100], str2: String[100]) -> bool:
     return str1 != str2
 
-@public
-def compare_passed_storage_equal(str: string[100]) -> bool:
+@external
+def compare_passed_storage_equal(str: String[100]) -> bool:
     self._compA = "The quick brown fox jumps over the lazy dog"
     return self._compA == str
 
-@public
-def compare_passed_storage_not_equal(str: string[100]) -> bool:
+@external
+def compare_passed_storage_not_equal(str: String[100]) -> bool:
     self._compA = "The quick brown fox jumps over the lazy dog"
     return self._compA != str
 
-@public
+@external
 def compare_var_storage_equal_true() -> bool:
     self._compA = "The quick brown fox jumps over the lazy dog"
-    compB: string[100] = "The quick brown fox jumps over the lazy dog"
+    compB: String[100] = "The quick brown fox jumps over the lazy dog"
     return self._compA == compB
 
-@public
+@external
 def compare_var_storage_equal_false() -> bool:
     self._compA = "The quick brown fox jumps over the lazy dog"
-    compB: string[100] = "The quick brown fox jumps over the lazy hog"
+    compB: String[100] = "The quick brown fox jumps over the lazy hog"
     return self._compA == compB
 
-@public
+@external
 def compare_var_storage_not_equal_true() -> bool:
     self._compA = "The quick brown fox jumps over the lazy dog"
-    compB: string[100] = "The quick brown fox jumps over the lazy hog"
+    compB: String[100] = "The quick brown fox jumps over the lazy hog"
     return self._compA != compB
 
-@public
+@external
 def compare_var_storage_not_equal_false() -> bool:
     self._compA = "The quick brown fox jumps over the lazy dog"
-    compB: string[100] = "The quick brown fox jumps over the lazy dog"
+    compB: String[100] = "The quick brown fox jumps over the lazy dog"
     return self._compA != compB
     """
 

@@ -7,6 +7,7 @@ from vyper.parser.global_context import GlobalContext
 test_code = """
 '''
 @title A simulator for Bug Bunny, the most famous Rabbit
+@license MIT
 @author Warned Bros
 @notice You can use this contract for only the most basic simulation
 @dev
@@ -14,9 +15,9 @@ test_code = """
     the throat to be considered eaten
 '''
 
-@public
+@external
 @payable
-def doesEat(food: string[30], qty: uint256) -> bool:
+def doesEat(food: String[30], qty: uint256) -> bool:
     '''
     @notice Determine if Bugs will accept `qty` of `food` to eat
     @dev Compares the entire string and does not rely on a hash
@@ -40,6 +41,7 @@ expected_userdoc = {
 
 expected_devdoc = {
     "author": "Warned Bros",
+    "license": "MIT",
     "details": "Simply chewing a carrot does not count, carrots must pass the throat to be considered eaten",  # NOQA: E501
     "methods": {
         "doesEat(string,uint256)": {
@@ -69,7 +71,7 @@ def test_no_tags_implies_notice():
 '''
 Because there is no tag, this docstring is handled as a notice.
 '''
-@public
+@external
 def foo():
     '''
     This one too!
@@ -118,7 +120,7 @@ We don't mind!
 
 def test_params():
     code = """
-@public
+@external
 def foo(bar: int128, baz: uint256, potato: bytes32):
     '''
     @param bar a number
@@ -144,7 +146,7 @@ def foo(bar: int128, baz: uint256, potato: bytes32):
 
 def test_returns():
     code = """
-@public
+@external
 def foo(bar: int128, baz: uint256) -> (int128, uint256):
     '''
     @return value of bar
@@ -159,21 +161,19 @@ def foo(bar: int128, baz: uint256) -> (int128, uint256):
 
     assert devdoc == {
         "methods": {
-            "foo(int128,uint256)": {
-                "returns": {"_0": "value of bar", "_1": "value of baz"}
-            }
+            "foo(int128,uint256)": {"returns": {"_0": "value of bar", "_1": "value of baz"}}
         }
     }
 
 
 def test_ignore_private_methods():
     code = """
-@public
+@external
 def foo(bar: int128, baz: uint256):
     '''@dev I will be parsed.'''
     pass
 
-@private
+@internal
 def notfoo(bar: int128, baz: uint256):
     '''@dev I will not be parsed.'''
     pass
@@ -183,14 +183,12 @@ def notfoo(bar: int128, baz: uint256):
     global_ctx = GlobalContext.get_global_context(vyper_ast)
     _, devdoc = parse_natspec(vyper_ast, global_ctx)
 
-    assert devdoc["methods"] == {
-        "foo(int128,uint256)": {"details": "I will be parsed."}
-    }
+    assert devdoc["methods"] == {"foo(int128,uint256)": {"details": "I will be parsed."}}
 
 
 def test_partial_natspec():
     code = """
-@public
+@external
 def foo():
     '''
     Regular comments preceeding natspec is not allowed
@@ -229,7 +227,7 @@ empty_field_cases = [
 @pytest.mark.parametrize("bad_docstring", empty_field_cases)
 def test_empty_field(bad_docstring):
     code = f"""
-@public
+@external
 def foo():
     '''{bad_docstring}'''
     pass
@@ -242,7 +240,7 @@ def foo():
 
 def test_unknown_field():
     code = """
-@public
+@external
 def foo():
     '''
     @notice this is ok
@@ -257,23 +255,72 @@ def foo():
         parse_natspec(vyper_ast, global_ctx)
 
 
-def test_invalid_field():
-    code = """
-@public
+@pytest.mark.parametrize("field", ["title", "license"])
+def test_invalid_field(field):
+    code = f"""
+@external
 def foo():
-    '''@title function level docstrings cannot have titles'''
+    '''@{field} function level docstrings cannot have titles'''
     pass
     """
 
     vyper_ast = parse_to_ast(code)
     global_ctx = GlobalContext.get_global_context(vyper_ast)
-    with pytest.raises(NatSpecSyntaxException, match="'@title' is not a valid field"):
+    with pytest.raises(NatSpecSyntaxException, match=f"'@{field}' is not a valid field"):
+        parse_natspec(vyper_ast, global_ctx)
+
+
+licenses = [
+    "Apache-2.0",
+    "Apache-2.0 OR MIT",
+    "PSF-2.0 AND MIT",
+    "Apache-2.0 AND (MIT OR GPL-2.0-only)",
+]
+
+
+@pytest.mark.parametrize("license", licenses)
+def test_license(license):
+    code = f"""
+'''
+@license {license}
+'''
+@external
+def foo():
+    pass
+    """
+
+    vyper_ast = parse_to_ast(code)
+    global_ctx = GlobalContext.get_global_context(vyper_ast)
+    _, devdoc = parse_natspec(vyper_ast, global_ctx)
+
+    assert devdoc == {
+        "license": license,
+    }
+
+
+fields = ["title", "author", "license", "notice", "dev"]
+
+
+@pytest.mark.parametrize("field", fields)
+def test_empty_fields(field):
+    code = f"""
+'''
+@{field}
+'''
+@external
+def foo():
+    pass
+    """
+
+    vyper_ast = parse_to_ast(code)
+    global_ctx = GlobalContext.get_global_context(vyper_ast)
+    with pytest.raises(NatSpecSyntaxException, match=f"No description given for tag '@{field}'"):
         parse_natspec(vyper_ast, global_ctx)
 
 
 def test_duplicate_fields():
     code = """
-@public
+@external
 def foo():
     '''
     @notice It's fine to have one notice, but....
@@ -290,7 +337,7 @@ def foo():
 
 def test_duplicate_param():
     code = """
-@public
+@external
 def foo(bar: int128, baz: uint256):
     '''
     @param bar a number
@@ -301,15 +348,13 @@ def foo(bar: int128, baz: uint256):
 
     vyper_ast = parse_to_ast(code)
     global_ctx = GlobalContext.get_global_context(vyper_ast)
-    with pytest.raises(
-        NatSpecSyntaxException, match="Parameter 'bar' documented more than once"
-    ):
+    with pytest.raises(NatSpecSyntaxException, match="Parameter 'bar' documented more than once"):
         parse_natspec(vyper_ast, global_ctx)
 
 
 def test_unknown_param():
     code = """
-@public
+@external
 def foo(bar: int128, baz: uint256):
     '''@param hotdog not a number'''
     pass
@@ -343,7 +388,7 @@ empty_field_cases = [
 @pytest.mark.parametrize("bad_docstring", empty_field_cases)
 def test_empty_param(bad_docstring):
     code = f"""
-@public
+@external
 def foo(a: int128):
     '''{bad_docstring}'''
     pass
@@ -356,7 +401,7 @@ def foo(a: int128):
 
 def test_too_many_returns_no_return_type():
     code = """
-@public
+@external
 def foo():
     '''@return should fail, the function does not include a return value'''
     pass
@@ -370,7 +415,7 @@ def foo():
 
 def test_too_many_returns_single_return_type():
     code = """
-@public
+@external
 def foo() -> int128:
     '''
     @return int128
@@ -382,15 +427,14 @@ def foo() -> int128:
     vyper_ast = parse_to_ast(code)
     global_ctx = GlobalContext.get_global_context(vyper_ast)
     with pytest.raises(
-        NatSpecSyntaxException,
-        match="Number of documented return values exceeds actual number",
+        NatSpecSyntaxException, match="Number of documented return values exceeds actual number",
     ):
         parse_natspec(vyper_ast, global_ctx)
 
 
 def test_too_many_returns_tuple_return_type():
     code = """
-@public
+@external
 def foo() -> (int128,uint256):
     '''
     @return int128
@@ -403,7 +447,6 @@ def foo() -> (int128,uint256):
     vyper_ast = parse_to_ast(code)
     global_ctx = GlobalContext.get_global_context(vyper_ast)
     with pytest.raises(
-        NatSpecSyntaxException,
-        match="Number of documented return values exceeds actual number",
+        NatSpecSyntaxException, match="Number of documented return values exceeds actual number",
     ):
         parse_natspec(vyper_ast, global_ctx)

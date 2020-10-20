@@ -1,30 +1,34 @@
 import ast as python_ast
+import tokenize
 from decimal import Decimal
 from typing import Optional
 
 import asttokens
 
 from vyper.exceptions import CompilerPanic, SyntaxException
-from vyper.typing import ClassTypes
+from vyper.typing import ModificationOffsets
 
 
 class AnnotatingVisitor(python_ast.NodeTransformer):
     _source_code: str
-    _class_types: ClassTypes
+    _modification_offsets: ModificationOffsets
 
     def __init__(
         self,
         source_code: str,
-        class_types: Optional[ClassTypes] = None,
-        source_id: int = 0,
+        modification_offsets: Optional[ModificationOffsets],
+        tokens: asttokens.ASTTokens,
+        source_id: int,
+        contract_name: Optional[str],
     ):
+        self._tokens = tokens
         self._source_id = source_id
+        self._contract_name = contract_name
         self._source_code: str = source_code
         self.counter: int = 0
-        if class_types is not None:
-            self._class_types = class_types
-        else:
-            self._class_types = {}
+        self._modification_offsets = {}
+        if modification_offsets is not None:
+            self._modification_offsets = modification_offsets
 
     def generic_visit(self, node):
         """
@@ -38,7 +42,13 @@ class AnnotatingVisitor(python_ast.NodeTransformer):
 
         # Decorate every node with source end offsets
         start = node.first_token.start if hasattr(node, "first_token") else (None, None)
-        end = node.last_token.end if hasattr(node, "last_token") else (None, None)
+        end = (None, None)
+        if hasattr(node, "last_token"):
+            end = node.last_token.end
+            if node.last_token.type == 4:
+                # token type 4 is a `\n`, some nodes include a trailing newline
+                # here we ignore it when building the node offsets
+                end = (end[0], end[1] - 1)
 
         node.lineno = start[0]
         node.col_offset = start[1]
@@ -48,6 +58,9 @@ class AnnotatingVisitor(python_ast.NodeTransformer):
         if hasattr(node, "last_token"):
             start_pos = node.first_token.startpos
             end_pos = node.last_token.endpos
+            if node.last_token.type == 4:
+                # ignore trailing newline once more
+                end_pos -= 1
             node.src = f"{start_pos}:{end_pos-start_pos}:{self._source_id}"
             node.node_source_code = self._source_code[start_pos:end_pos]
 
@@ -70,22 +83,48 @@ class AnnotatingVisitor(python_ast.NodeTransformer):
         return node
 
     def visit_Module(self, node):
+        node.name = self._contract_name
         return self._visit_docstring(node)
 
     def visit_FunctionDef(self, node):
+        if node.decorator_list:
+            # start the source highlight at `def` to improve annotation readability
+            decorator_token = node.decorator_list[-1].last_token
+            def_token = self._tokens.find_token(decorator_token, tokenize.NAME, tok_str="def")
+            node.first_token = def_token
+
         return self._visit_docstring(node)
 
     def visit_ClassDef(self, node):
         """
-        Annotate the Class node with it's original type from the Vyper source.
+        Convert the `ClassDef` node into a Vyper-specific node type.
 
-        Vyper uses `struct` and `contract` in place of `class`, however these
+        Vyper uses `struct` and `interface` in place of `class`, however these
         values must be substituted out to create parseable Python. The Python
-        node is annotated with the original value via the `class_type` member.
+        node is annotated with the desired Vyper type via the `ast_type` member.
         """
         self.generic_visit(node)
 
-        node.class_type = self._class_types.get(node.name)
+        node.ast_type = self._modification_offsets[(node.lineno, node.col_offset)]
+        return node
+
+    def visit_Expr(self, node):
+        """
+        Convert the `Yield` node into a Vyper-specific node type.
+
+        Vyper substitutes `yield` for non-pythonic statement such as `log`. Prior
+        to generating Vyper AST, we must annotate `Yield` nodes with their original
+        value.
+
+        Because `Yield` is an expression-statement, we also remove it from it's
+        enclosing `Expr` node.
+        """
+        self.generic_visit(node)
+
+        if isinstance(node.value, python_ast.Yield):
+            node = node.value
+            node.ast_type = self._modification_offsets[(node.lineno, node.col_offset)]
+
         return node
 
     def visit_Constant(self, node):
@@ -108,7 +147,7 @@ class AnnotatingVisitor(python_ast.NodeTransformer):
             node.ast_type = "Bytes"
         else:
             raise SyntaxException(
-                f"Invalid syntax (unsupported Python Constant AST node).",
+                "Invalid syntax (unsupported Python Constant AST node).",
                 self._source_code,
                 node.lineno,
                 node.col_offset,
@@ -130,10 +169,20 @@ class AnnotatingVisitor(python_ast.NodeTransformer):
         value = node.node_source_code
 
         # deduce non base-10 types based on prefix
-        literal_prefixes = {"0x": "Hex", "0o": "Octal"}
-        if value.lower()[:2] in literal_prefixes:
-            node.ast_type = literal_prefixes[value.lower()[:2]]
-            node.n = value
+        if value.lower()[:2] == "0x":
+            if len(value) % 2:
+                raise SyntaxException(
+                    "Hex notation requires an even number of digits",
+                    self._source_code,
+                    node.lineno,
+                    node.col_offset,
+                )
+            if len(value) in (42, 66):
+                node.ast_type = "Hex"
+                node.n = value
+            else:
+                node.ast_type = "Bytes"
+                node.value = int(value, 16).to_bytes(len(value) // 2 - 1, "big")
 
         elif value.lower()[:2] == "0b":
             node.ast_type = "Bytes"
@@ -155,9 +204,7 @@ class AnnotatingVisitor(python_ast.NodeTransformer):
             node.ast_type = "Int"
 
         else:
-            raise CompilerPanic(
-                f"Unexpected type for Constant value: {type(node.n).__name__}"
-            )
+            raise CompilerPanic(f"Unexpected type for Constant value: {type(node.n).__name__}")
 
         return node
 
@@ -192,8 +239,9 @@ class AnnotatingVisitor(python_ast.NodeTransformer):
 def annotate_python_ast(
     parsed_ast: python_ast.AST,
     source_code: str,
-    class_types: Optional[ClassTypes] = None,
+    modification_offsets: Optional[ModificationOffsets] = None,
     source_id: int = 0,
+    contract_name: Optional[str] = None,
 ) -> python_ast.AST:
     """
     Annotate and optimize a Python AST in preparation conversion to a Vyper AST.
@@ -204,7 +252,7 @@ def annotate_python_ast(
         The AST to be annotated and optimized.
     source_code : str
         The originating source code of the AST.
-    class_types : dict, optional
+    modification_offsets : dict, optional
         A mapping of class names to their original class types.
 
     Returns
@@ -212,7 +260,8 @@ def annotate_python_ast(
         The annotated and optimized AST.
     """
 
-    asttokens.ASTTokens(source_code, tree=parsed_ast)
-    AnnotatingVisitor(source_code, class_types, source_id).visit(parsed_ast)
+    tokens = asttokens.ASTTokens(source_code, tree=parsed_ast)
+    visitor = AnnotatingVisitor(source_code, modification_offsets, tokens, source_id, contract_name)
+    visitor.visit(parsed_ast)
 
     return parsed_ast

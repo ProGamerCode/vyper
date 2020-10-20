@@ -1,57 +1,69 @@
 import pytest
-from pytest import raises
 
 from vyper import compiler
-from vyper.exceptions import TypeMismatch
+from vyper.exceptions import InvalidType, TypeMismatch
 
 fail_list = [
-    """
-@public
+    (
+        """
+@external
 def foo():
     send(1, 2)
     """,
-    """
-@public
-def foo():
-    send(1, 2)
-    """,
-    """
-@public
+        InvalidType,
+    ),
+    (
+        """
+@external
 def foo():
     send(0x1234567890123456789012345678901234567890, 2.5)
     """,
-    """
-@public
+        InvalidType,
+    ),
+    (
+        """
+@external
 def foo():
     send(0x1234567890123456789012345678901234567890, 0x1234567890123456789012345678901234567890)
     """,
-    """
+        InvalidType,
+    ),
+    (
+        """
 x: int128
 
-@public
+@external
 def foo():
     send(0x1234567890123456789012345678901234567890, self.x)
     """,
-    """
+        TypeMismatch,
+    ),
+    (
+        """
 x: uint256
 
-@public
+@external
 def foo():
     send(0x1234567890123456789012345678901234567890, self.x + 1.5)
     """,
-    """
+        TypeMismatch,
+    ),
+    (
+        """
 x: decimal
 
-@public
+@external
 def foo():
     send(0x1234567890123456789012345678901234567890, self.x)
-    """
+    """,
+        TypeMismatch,
+    ),
 ]
 
 
-@pytest.mark.parametrize('bad_code', fail_list)
-def test_send_fail(bad_code):
-    with raises(TypeMismatch):
+@pytest.mark.parametrize("bad_code,exc", fail_list)
+def test_send_fail(bad_code, exc):
+    with pytest.raises(exc):
         compiler.compile_code(bad_code)
 
 
@@ -59,43 +71,43 @@ valid_list = [
     """
 x: uint256
 
-@public
+@external
 def foo():
     send(0x1234567890123456789012345678901234567890, self.x + 1)
     """,
     """
 x: decimal
 
-@public
+@external
 def foo():
     send(0x1234567890123456789012345678901234567890, as_wei_value(floor(self.x), "wei"))
     """,
     """
 x: uint256
 
-@public
+@external
 def foo():
     send(0x1234567890123456789012345678901234567890, self.x)
     """,
     """
-@public
+@external
 def foo():
     send(0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe, 5)
     """,
     """
 # Test custom send method
-@private
+@internal
 def send(a: address, w: uint256):
     send(0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe, 1)
 
-@public
+@external
 @payable
 def foo():
     self.send(msg.sender, msg.value)
-    """
+    """,
 ]
 
 
-@pytest.mark.parametrize('good_code', valid_list)
+@pytest.mark.parametrize("good_code", valid_list)
 def test_block_success(good_code):
     assert compiler.compile_code(good_code) is not None

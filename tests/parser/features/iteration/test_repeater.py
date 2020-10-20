@@ -1,6 +1,9 @@
+import pytest
+
+
 def test_basic_repeater(get_contract_with_gas_estimation):
     basic_repeater = """
-@public
+@external
 def repeat(z: int128) -> int128:
     x: int128 = 0
     for i in range(6):
@@ -9,12 +12,11 @@ def repeat(z: int128) -> int128:
     """
     c = get_contract_with_gas_estimation(basic_repeater)
     assert c.repeat(9) == 54
-    print('Passed basic repeater test')
 
 
 def test_digit_reverser(get_contract_with_gas_estimation):
     digit_reverser = """
-@public
+@external
 def reverse_digits(x: int128) -> int128:
     dig: int128[6] = [0, 0, 0, 0, 0, 0]
     z: int128 = x
@@ -30,12 +32,11 @@ def reverse_digits(x: int128) -> int128:
 
     c = get_contract_with_gas_estimation(digit_reverser)
     assert c.reverse_digits(123456) == 654321
-    print('Passed digit reverser test')
 
 
 def test_more_complex_repeater(get_contract_with_gas_estimation):
     more_complex_repeater = """
-@public
+@external
 def repeat() -> int128:
     out: int128 = 0
     for i in range(6):
@@ -48,51 +49,47 @@ def repeat() -> int128:
     c = get_contract_with_gas_estimation(more_complex_repeater)
     assert c.repeat() == 666666
 
-    print('Passed complex repeater test')
 
-
-def test_offset_repeater(get_contract_with_gas_estimation):
-    offset_repeater = """
-@public
-def sum() -> int128:
-    out: int128 = 0
+@pytest.mark.parametrize("typ", ["int128", "uint256"])
+def test_offset_repeater(get_contract_with_gas_estimation, typ):
+    offset_repeater = f"""
+@external
+def sum() -> {typ}:
+    out: {typ} = 0
     for i in range(80, 121):
         out = out + i
-    return(out)
+    return out
     """
 
     c = get_contract_with_gas_estimation(offset_repeater)
     assert c.sum() == 4100
 
-    print('Passed repeater with offset test')
 
-
-def test_offset_repeater_2(get_contract_with_gas_estimation):
-    offset_repeater_2 = """
-@public
-def sum(frm: int128, to: int128) -> int128:
-    out: int128 = 0
+@pytest.mark.parametrize("typ", ["int128", "uint256"])
+def test_offset_repeater_2(get_contract_with_gas_estimation, typ):
+    offset_repeater_2 = f"""
+@external
+def sum(frm: {typ}, to: {typ}) -> {typ}:
+    out: {typ} = 0
     for i in range(frm, frm + 101):
         if i == to:
             break
         out = out + i
-    return(out)
+    return out
     """
 
     c = get_contract_with_gas_estimation(offset_repeater_2)
     assert c.sum(100, 99999) == 15150
     assert c.sum(70, 131) == 6100
 
-    print('Passed more complex repeater with offset test')
-
 
 def test_loop_call_priv(get_contract_with_gas_estimation):
     code = """
-@private
+@internal
 def _bar() -> bool:
     return True
 
-@public
+@external
 def foo() -> bool:
     for i in range(3):
         self._bar()
@@ -101,3 +98,89 @@ def foo() -> bool:
 
     c = get_contract_with_gas_estimation(code)
     assert c.foo() is True
+
+
+@pytest.mark.parametrize("typ", ["int128", "uint256"])
+def test_return_inside_repeater(get_contract, typ):
+    code = f"""
+@internal
+def _final(a: {typ}) -> {typ}:
+    for i in range(10):
+        if i > a:
+            return i
+    return 31337
+
+@internal
+def _middle(a: {typ}) -> {typ}:
+    b: {typ} = self._final(a)
+    return b
+
+@external
+def foo(a: {typ}) -> {typ}:
+    b: {typ} = self._middle(a)
+    return b
+    """
+
+    c = get_contract(code)
+    assert c.foo(6) == 7
+    assert c.foo(100) == 31337
+
+
+@pytest.mark.parametrize("typ", ["int128", "uint256"])
+def test_return_inside_nested_repeater(get_contract, typ):
+    code = f"""
+@internal
+def _final(a: {typ}) -> {typ}:
+    for i in range(10):
+        for x in range(10):
+            if i + x > a:
+                return i + x
+    return 31337
+
+@internal
+def _middle(a: {typ}) -> {typ}:
+    b: {typ} = self._final(a)
+    return b
+
+@external
+def foo(a: {typ}) -> {typ}:
+    b: {typ} = self._middle(a)
+    return b
+    """
+
+    c = get_contract(code)
+    assert c.foo(14) == 15
+    assert c.foo(100) == 31337
+
+
+@pytest.mark.parametrize("typ", ["int128", "uint256"])
+def test_breaks_and_returns_inside_nested_repeater(get_contract, typ):
+    code = f"""
+@internal
+def _final(a: {typ}) -> {typ}:
+    for i in range(10):
+        for x in range(10):
+            if a < 2:
+                break
+            return 6
+        if a == 1:
+            break
+        return 31337
+
+    return 666
+
+@internal
+def _middle(a: {typ}) -> {typ}:
+    b: {typ} = self._final(a)
+    return b
+
+@external
+def foo(a: {typ}) -> {typ}:
+    b: {typ} = self._middle(a)
+    return b
+    """
+
+    c = get_contract(code)
+    assert c.foo(100) == 6
+    assert c.foo(1) == 666
+    assert c.foo(0) == 31337

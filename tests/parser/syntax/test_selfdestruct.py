@@ -1,34 +1,33 @@
 import pytest
-from pytest import raises
 
 from vyper import compiler
-from vyper.exceptions import TypeMismatch
+from vyper.exceptions import InvalidType
 
 fail_list = [
     """
-@public
+@external
 def foo():
     selfdestruct(7)
     """
 ]
 
 
-@pytest.mark.parametrize('bad_code', fail_list)
+@pytest.mark.parametrize("bad_code", fail_list)
 def test_block_fail(bad_code):
 
-    with raises(TypeMismatch):
+    with pytest.raises(InvalidType):
         compiler.compile_code(bad_code)
 
 
 valid_list = [
     """
-@public
+@external
 def foo():
     selfdestruct(0x1234567890123456789012345678901234567890)
     """
 ]
 
 
-@pytest.mark.parametrize('good_code', valid_list)
+@pytest.mark.parametrize("good_code", valid_list)
 def test_block_success(good_code):
     assert compiler.compile_code(good_code) is not None

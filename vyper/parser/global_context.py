@@ -1,20 +1,13 @@
 from typing import Optional
 
 from vyper import ast as vy_ast
-from vyper.exceptions import (
-    EventDeclarationException,
-    FunctionDeclarationException,
-    InvalidType,
-    StructureException,
-    VariableDeclarationException,
-)
-from vyper.parser.constants import Constants
+from vyper.exceptions import InvalidType, StructureException
 from vyper.parser.parser_utils import getpos, set_offsets
 from vyper.signatures.function_signature import ContractRecord, VariableRecord
 from vyper.types import (
     BaseType,
     ByteArrayLike,
-    ContractType,
+    InterfaceType,
     ListType,
     MappingType,
     StructType,
@@ -23,22 +16,23 @@ from vyper.types import (
 from vyper.typing import InterfaceImports
 from vyper.utils import VALID_GLOBAL_KEYWORDS, check_valid_varname
 
-NONRENTRANT_STORAGE_OFFSET = 0xffffff
+NONRENTRANT_STORAGE_OFFSET = 0xFFFFFF
 
 
 # Datatype to store all global context information.
 class GlobalContext:
     def __init__(self):
+        # Oh jesus, just leave this. So confusing!
         self._contracts = dict()
+        self._interfaces = dict()
+        self._interface = dict()
+        self._implemented_interfaces = set()
+
         self._structs = dict()
         self._events = list()
         self._globals = dict()
         self._defs = list()
         self._getters = list()
-        self._constants = Constants()
-        self._interfaces = dict()
-        self._interface = dict()
-        self._implemented_interfaces = set()
         self._nonrentrant_counter = 0
         self._nonrentrant_keys = dict()
 
@@ -51,42 +45,25 @@ class GlobalContext:
             extract_sigs,
             get_builtin_interfaces,
         )
+
         interface_codes = {} if interface_codes is None else interface_codes
         global_ctx = cls()
 
         for item in vyper_module:
-            # Contract references
-            if isinstance(item, vy_ast.ClassDef):
-                if global_ctx._events or global_ctx._globals or global_ctx._defs:
-                    raise StructureException((
-                        "External contract and struct declarations must come "
-                        "before event declarations, global declarations, and "
-                        "function definitions"
-                    ), item)
+            if isinstance(item, vy_ast.StructDef):
+                global_ctx._structs[item.name] = global_ctx.make_struct(item)
 
-                if item.class_type == 'struct':
-                    if global_ctx._contracts:
-                        raise StructureException(
-                            "Structs must come before external contract definitions", item
-                        )
-                    global_ctx._structs[item.name] = global_ctx.make_struct(item)
-                elif item.class_type == 'contract':
-                    if item.name in global_ctx._contracts or item.name in global_ctx._interfaces:
-                        raise StructureException(
-                            f"Contract '{item.name}' is already defined",
-                            item,
-                        )
-                    global_ctx._contracts[item.name] = GlobalContext.make_contract(item)
-                else:
-                    raise StructureException(
-                        "Unknown class_type. This is likely a compiler bug, please report", item
-                    )
+            elif isinstance(item, vy_ast.InterfaceDef):
+                global_ctx._contracts[item.name] = GlobalContext.make_contract(item)
+
+            elif isinstance(item, vy_ast.EventDef):
+                global_ctx._events.append(item)
 
             # Statements of the form:
             # variable_name: type
             elif isinstance(item, vy_ast.AnnAssign):
                 is_implements_statement = (
-                    isinstance(item.target, vy_ast.Name) and item.target.id == 'implements'
+                    isinstance(item.target, vy_ast.Name) and item.target.id == "implements"
                 ) and item.annotation
 
                 # implements statement.
@@ -94,62 +71,44 @@ class GlobalContext:
                     interface_name = item.annotation.id  # type: ignore
                     if interface_name not in global_ctx._interfaces:
                         raise StructureException(
-                            f'Unknown interface specified: {interface_name}', item
+                            f"Unknown interface specified: {interface_name}", item
                         )
                     global_ctx._implemented_interfaces.add(interface_name)
                 else:
                     global_ctx.add_globals_and_events(item)
             # Function definitions
             elif isinstance(item, vy_ast.FunctionDef):
-                if item.name in global_ctx._globals:
-                    raise FunctionDeclarationException(
-                        f"Function name shadowing a variable name: {item.name}"
-                    )
                 global_ctx._defs.append(item)
             elif isinstance(item, vy_ast.ImportFrom):
-                if not item.level and item.module == 'vyper.interfaces':
+                interface_name = item.name
+                assigned_name = item.alias or item.name
+                if assigned_name in global_ctx._interfaces:
+                    raise StructureException(f"Duplicate import of {interface_name}", item)
+
+                if not item.level and item.module == "vyper.interfaces":
                     built_in_interfaces = get_builtin_interfaces()
-                    for item_alias in item.names:
-                        interface_name = item_alias.name
-                        if interface_name in global_ctx._interfaces:
-                            raise StructureException(
-                                f'Duplicate import of {interface_name}', item
-                            )
-                        if interface_name not in built_in_interfaces:
-                            raise StructureException(
-                                f'Built-In interface {interface_name} does not exist.', item
-                            )
-                        global_ctx._interfaces[interface_name] = built_in_interfaces[interface_name].copy()  # noqa: E501
+                    if interface_name not in built_in_interfaces:
+                        raise StructureException(
+                            f"Built-In interface {interface_name} does not exist.", item
+                        )
+                    global_ctx._interfaces[assigned_name] = built_in_interfaces[
+                        interface_name
+                    ].copy()
                 else:
-                    for item_alias in item.names:
-                        interface_name = item_alias.name
-
-                        if interface_name in global_ctx._interfaces:
-                            raise StructureException(
-                                f'Duplicate import of {interface_name}', item
-                            )
-                        if interface_name not in interface_codes:
-                            raise StructureException(
-                                f'Unknown interface {interface_name}', item
-                            )
-                        global_ctx._interfaces[interface_name] = extract_sigs(interface_codes[interface_name])  # noqa: E501
-            elif isinstance(item, vy_ast.Import):
-                for item_alias in item.names:
-                    if not item_alias.asname:
-                        raise StructureException(
-                            'External interface import expects an alias using `as` statement', item
-                        )
-
-                    interface_name = item_alias.asname
-                    if interface_name in global_ctx._interfaces:
-                        raise StructureException(
-                            f'Duplicate import of {interface_name}', item
-                        )
                     if interface_name not in interface_codes:
-                        raise StructureException(
-                            f'Unknown interface {interface_name}', item
-                        )
-                    global_ctx._interfaces[interface_name] = extract_sigs(interface_codes[interface_name])  # noqa: E501
+                        raise StructureException(f"Unknown interface {interface_name}", item)
+                    global_ctx._interfaces[assigned_name] = extract_sigs(
+                        interface_codes[interface_name], interface_name
+                    )
+            elif isinstance(item, vy_ast.Import):
+                interface_name = item.alias
+                if interface_name in global_ctx._interfaces:
+                    raise StructureException(f"Duplicate import of {interface_name}", item)
+                if interface_name not in interface_codes:
+                    raise StructureException(f"Unknown interface {interface_name}", item)
+                global_ctx._interfaces[interface_name] = extract_sigs(
+                    interface_codes[interface_name], interface_name
+                )
             else:
                 raise StructureException("Invalid top-level statement", item)
 
@@ -197,34 +156,27 @@ class GlobalContext:
         elif isinstance(typ, ListType):
             o = []
             for funname, head, tail, base in cls._mk_getter_helper(typ.subtype, depth + 1):
-                o.append((
-                    funname,
-                    (f"arg{depth}: int128, ") + head,
-                    (f"[arg{depth}]") + tail,
-                    base,
-                ))
+                o.append(
+                    (funname, (f"arg{depth}: uint256, ") + head, (f"[arg{depth}]") + tail, base,)
+                )
             return o
         # Mapping type: do not extend the getter name, add an input argument for
         # the key in the map, add a value access to the return statement
         elif isinstance(typ, MappingType):
             o = []
             for funname, head, tail, base in cls._mk_getter_helper(typ.valuetype, depth + 1):
-                o.append((
-                    funname,
-                    (f"arg{depth}: {typ.keytype}, ") + head,
-                    (f"[arg{depth}]") + tail,
-                    base,
-                ))
+                o.append(
+                    (
+                        funname,
+                        (f"arg{depth}: {typ.keytype}, ") + head,
+                        (f"[arg{depth}]") + tail,
+                        base,
+                    )
+                )
             return o
-        # Struct type: for each member variable, make a separate getter, extend
-        # its function name with the name of the variable, do not add input
-        # arguments, add a member access to the return statement
+        # Struct type: return type is just the abi-encoded struct
         elif isinstance(typ, StructType):
-            o = []
-            for k, v in typ.members.items():
-                for funname, head, tail, base in cls._mk_getter_helper(v, depth):
-                    o.append(("__" + k + funname, head, "." + k + tail, base))
-            return o
+            return [("", "", "", typ.name)]
         else:
             raise Exception("Unexpected type")
 
@@ -233,7 +185,11 @@ class GlobalContext:
     def mk_getter(cls, varname, typ):
         funs = cls._mk_getter_helper(typ)
         return [
-            f"@public\n@constant\ndef {varname}{funname}({head.rstrip(', ')}) -> {base}: return self.{varname}{tail}" for (funname, head, tail, base) in funs  # noqa: E501
+            f"""@view
+@external
+def {varname}{funname}({head.rstrip(', ')}) -> {base}:
+    return self.{varname}{tail}"""
+            for (funname, head, tail, base) in funs  # noqa: E501
         ]
 
     # Parser for a single line
@@ -243,7 +199,7 @@ class GlobalContext:
         return parsed_ast
 
     # A struct is a list of members
-    def make_struct(self, node: "vy_ast.ClassDef") -> list:
+    def make_struct(self, node: "vy_ast.StructDef") -> list:
         members = []
 
         for item in node.body:
@@ -254,14 +210,10 @@ class GlobalContext:
                 if not isinstance(member_name, vy_ast.Name):
                     raise InvalidType(
                         f"Invalid member name for struct {node.name}, needs to be a valid name. ",
-                        item
+                        item,
                     )
                 check_valid_varname(
-                    member_name.id,
-                    self._structs,
-                    self._constants,
-                    item,
-                    "Invalid member name for struct. "
+                    member_name.id, self._structs, item, "Invalid member name for struct. ",
                 )
                 # Check well-formedness of member types
                 # Note this kicks out mutually recursive structs,
@@ -270,10 +222,7 @@ class GlobalContext:
                 # This feels like a semantic step and maybe should be pushed
                 # to a later compilation stage.
                 parse_type(
-                    member_type,
-                    'storage',
-                    custom_structs=self._structs,
-                    constants=self._constants,
+                    member_type, "storage", custom_structs=self._structs,
                 )
                 members.append((member_name, member_type))
             else:
@@ -282,7 +231,7 @@ class GlobalContext:
 
     # A contract is a list of functions.
     @staticmethod
-    def make_contract(node: "vy_ast.ClassDef") -> list:
+    def make_contract(node: "vy_ast.InterfaceDef") -> list:
         _defs = []
         for item in node.body:
             # Function definitions
@@ -294,10 +243,8 @@ class GlobalContext:
 
     def get_item_name_and_attributes(self, item, attributes):
         is_map_invocation = (
-            (
-                isinstance(item, vy_ast.Call) and isinstance(item.func, vy_ast.Name)
-            ) and item.func.id == 'map'
-        )
+            isinstance(item, vy_ast.Call) and isinstance(item.func, vy_ast.Name)
+        ) and item.func.id == "HashMap"
 
         if isinstance(item, vy_ast.Name):
             return item.id, attributes
@@ -308,7 +255,7 @@ class GlobalContext:
         elif is_map_invocation:
             if len(item.args) != 2:
                 raise StructureException(
-                    "Map type expects two type arguments map(type1, type2)", item.func
+                    "Map type expects two type arguments HashMap[type1, type2]", item.func
                 )
             return self.get_item_name_and_attributes(item.args, attributes)
         # elif ist
@@ -322,34 +269,14 @@ class GlobalContext:
 
     def is_valid_varname(self, name, item):
         """ Valid variable name, checked against global context. """
-        check_valid_varname(name, self._structs, self._constants, item)
-        if name in self._globals:
-            raise VariableDeclarationException(
-                f'Invalid name "{name}", previously defined as global.', item
-            )
+        check_valid_varname(name, self._structs, item)
         return True
-
-    def add_constant(self, item):
-        args = item.annotation.args
-        if not item.value:
-            raise StructureException('Constants must express a value!', item)
-
-        is_valid_struct = (
-            len(args) == 1 and
-            isinstance(args[0], (vy_ast.Subscript, vy_ast.Name, vy_ast.Call))
-        ) and item.target
-
-        if is_valid_struct:
-            c_name = item.target.id
-            if self.is_valid_varname(c_name, item):
-                self._constants[c_name] = self.unroll_constant(item)
-        else:
-            raise StructureException('Incorrectly formatted struct', item)
 
     @staticmethod
     def get_call_func_name(item):
-        if isinstance(item.annotation, vy_ast.Call) and \
-           isinstance(item.annotation.func, vy_ast.Name):
+        if isinstance(item.annotation, vy_ast.Call) and isinstance(
+            item.annotation.func, vy_ast.Name
+        ):
             return item.annotation.func.id
 
     def add_globals_and_events(self, item):
@@ -363,44 +290,19 @@ class GlobalContext:
 
         # Make sure we have a valid variable name.
         if not isinstance(item.target, vy_ast.Name):
-            raise StructureException('Invalid global variable name', item.target)
+            raise StructureException("Invalid global variable name", item.target)
 
         # Handle constants.
         if self.get_call_func_name(item) == "constant":
-            self._constants.add_constant(item, global_ctx=self)
+            self.is_valid_varname(item.target.id, item)
             return
 
-        # Handle events.
-        if not (self.get_call_func_name(item) == "event"):
-            item_name, item_attributes = self.get_item_name_and_attributes(item, item_attributes)
-            if not all([attr in VALID_GLOBAL_KEYWORDS for attr in item_attributes.keys()]):
-                raise StructureException(f'Invalid global keyword used: {item_attributes}', item)
+        item_name, item_attributes = self.get_item_name_and_attributes(item, item_attributes)
+        if not all([attr in VALID_GLOBAL_KEYWORDS for attr in item_attributes.keys()]):
+            raise StructureException(f"Invalid global keyword used: {item_attributes}", item)
+        self.is_valid_varname(item.target.id, item)
 
-        if item.value is not None:
-            raise StructureException('May not assign value whilst defining type', item)
-        elif self.get_call_func_name(item) == "event":
-            if self._globals or len(self._defs):
-                raise EventDeclarationException(
-                    "Events must all come before global declarations and function definitions", item
-                )
-            self._events.append(item)
-        elif not isinstance(item.target, vy_ast.Name):
-            raise StructureException(
-                "Can only assign type to variable in top-level statement", item
-            )
-
-        # Check if variable name is valid.
-        # Don't move this check higher, as unit parsing has to happen first.
-        elif not self.is_valid_varname(item.target.id, item):
-            pass
-
-        elif len(self._defs):
-            raise StructureException(
-                "Global variables must all come before function definitions",
-                item,
-            )
-
-        elif item_name in self._contracts or item_name in self._interfaces:
+        if item_name in self._contracts or item_name in self._interfaces:
             if self.get_call_func_name(item) == "address":
                 raise StructureException(
                     f"Persistent address({item_name}) style contract declarations "
@@ -408,61 +310,40 @@ class GlobalContext:
                     f" Use {item.target.id}: {item_name} instead"
                 )
             self._globals[item.target.id] = ContractRecord(
-                item.target.id,
-                len(self._globals),
-                ContractType(item_name),
-                True,
+                item.target.id, len(self._globals), InterfaceType(item_name), True,
             )
             if item_attributes["public"]:
-                typ = ContractType(item_name)
+                typ = InterfaceType(item_name)
                 for getter in self.mk_getter(item.target.id, typ):
-                    self._getters.append(self.parse_line('\n' * (item.lineno - 1) + getter))
+                    self._getters.append(self.parse_line("\n" * (item.lineno - 1) + getter))
                     self._getters[-1].pos = getpos(item)
                     set_offsets(self._getters[-1], self._getters[-1].pos)
         elif self.get_call_func_name(item) == "public":
             if isinstance(item.annotation.args[0], vy_ast.Name) and item_name in self._contracts:
-                typ = ContractType(item_name)
+                typ = InterfaceType(item_name)
             else:
-                typ = parse_type(
-                    item.annotation.args[0],
-                    'storage',
-                    custom_structs=self._structs,
-                    constants=self._constants,
-                )
+                typ = parse_type(item.annotation.args[0], "storage", custom_structs=self._structs,)
             self._globals[item.target.id] = VariableRecord(
-                item.target.id,
-                len(self._globals),
-                typ,
-                True,
+                item.target.id, len(self._globals), typ, True,
             )
             # Adding getters here
             for getter in self.mk_getter(item.target.id, typ):
-                self._getters.append(self.parse_line('\n' * (item.lineno - 1) + getter))
+                self._getters.append(self.parse_line("\n" * (item.lineno - 1) + getter))
                 self._getters[-1].pos = getpos(item)
                 set_offsets(self._getters[-1], self._getters[-1].pos)
 
         elif isinstance(item.annotation, (vy_ast.Name, vy_ast.Call, vy_ast.Subscript)):
             self._globals[item.target.id] = VariableRecord(
-                item.target.id, len(self._globals),
-                parse_type(
-                    item.annotation,
-                    'storage',
-                    custom_structs=self._structs,
-                    constants=self._constants
-                ),
-                True
+                item.target.id,
+                len(self._globals),
+                parse_type(item.annotation, "storage", custom_structs=self._structs,),
+                True,
             )
         else:
-            raise InvalidType('Invalid global type specified', item)
+            raise InvalidType("Invalid global type specified", item)
 
     def parse_type(self, ast_node, location):
-        return parse_type(
-            ast_node,
-            location,
-            sigs=self._contracts,
-            custom_structs=self._structs,
-            constants=self._constants
-        )
+        return parse_type(ast_node, location, sigs=self._contracts, custom_structs=self._structs,)
 
     def get_nonrentrant_counter(self, key):
         """

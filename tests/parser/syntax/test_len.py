@@ -6,19 +6,19 @@ from vyper.exceptions import TypeMismatch
 
 fail_list = [
     """
-@public
-def foo(inp: int128) -> int128:
+@external
+def foo(inp: Bytes[4]) -> int128:
     return len(inp)
     """,
     """
-@public
-def foo(inp: int128) -> address:
+@external
+def foo(inp: int128) -> uint256:
     return len(inp)
-    """
+    """,
 ]
 
 
-@pytest.mark.parametrize('bad_code', fail_list)
+@pytest.mark.parametrize("bad_code", fail_list)
 def test_block_fail(bad_code):
 
     if isinstance(bad_code, tuple):
@@ -31,18 +31,18 @@ def test_block_fail(bad_code):
 
 valid_list = [
     """
-@public
-def foo(inp: bytes[10]) -> int128:
+@external
+def foo(inp: Bytes[10]) -> uint256:
     return len(inp)
     """,
     """
-@public
-def foo(inp: string[10]) -> int128:
+@external
+def foo(inp: String[10]) -> uint256:
     return len(inp)
-    """
+    """,
 ]
 
 
-@pytest.mark.parametrize('good_code', valid_list)
+@pytest.mark.parametrize("good_code", valid_list)
 def test_list_success(good_code):
     assert compiler.compile_code(good_code) is not None

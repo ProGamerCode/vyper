@@ -4,16 +4,15 @@ from web3.exceptions import ValidationError
 TOKEN_NAME = "Vypercoin"
 TOKEN_SYMBOL = "FANG"
 TOKEN_DECIMALS = 18
-TOKEN_INITIAL_SUPPLY = (21 * 10 ** 6)
+TOKEN_INITIAL_SUPPLY = 21 * 10 ** 6
 TOKEN_TOTAL_SUPPLY = TOKEN_INITIAL_SUPPLY * (10 ** TOKEN_DECIMALS)
 
 
 @pytest.fixture
 def erc20(get_contract):
-    with open('examples/tokens/ERC20.vy') as f:
+    with open("examples/tokens/ERC20.vy") as f:
         contract = get_contract(
-            f.read(),
-            *[TOKEN_NAME, TOKEN_SYMBOL, TOKEN_DECIMALS, TOKEN_INITIAL_SUPPLY]
+            f.read(), *[TOKEN_NAME, TOKEN_SYMBOL, TOKEN_DECIMALS, TOKEN_INITIAL_SUPPLY]
         )
     return contract
 
@@ -21,52 +20,52 @@ def erc20(get_contract):
 @pytest.fixture
 def erc20_caller(erc20, get_contract):
     erc20_caller_code = """
-contract ERC20Contract:
-    def name() -> string[64]: constant
-    def symbol() -> string[32]: constant
-    def decimals() -> uint256: constant
-    def balanceOf(_owner: address) -> uint256: constant
-    def totalSupply() -> uint256: constant
-    def transfer(_to: address, _amount: uint256) -> bool: modifying
-    def transferFrom(_from: address, _to: address, _value: uint256) -> bool: modifying
-    def approve(_spender: address, _amount: uint256) -> bool: modifying
-    def allowance(_owner: address, _spender: address) -> uint256: modifying
+interface ERC20Contract:
+    def name() -> String[64]: view
+    def symbol() -> String[32]: view
+    def decimals() -> uint256: view
+    def balanceOf(_owner: address) -> uint256: view
+    def totalSupply() -> uint256: view
+    def transfer(_to: address, _amount: uint256) -> bool: nonpayable
+    def transferFrom(_from: address, _to: address, _value: uint256) -> bool: nonpayable
+    def approve(_spender: address, _amount: uint256) -> bool: nonpayable
+    def allowance(_owner: address, _spender: address) -> uint256: nonpayable
 
 token_address: ERC20Contract
 
-@public
+@external
 def __init__(token_addr: address):
     self.token_address = ERC20Contract(token_addr)
 
-@public
-def name() -> string[64]:
+@external
+def name() -> String[64]:
     return self.token_address.name()
 
-@public
-def symbol() -> string[32]:
+@external
+def symbol() -> String[32]:
     return self.token_address.symbol()
 
-@public
+@external
 def decimals() -> uint256:
     return self.token_address.decimals()
 
-@public
+@external
 def balanceOf(_owner: address) -> uint256:
     return self.token_address.balanceOf(_owner)
 
-@public
+@external
 def totalSupply() -> uint256:
     return self.token_address.totalSupply()
 
-@public
+@external
 def transfer(_to: address, _value: uint256) -> bool:
     return self.token_address.transfer(_to, _value)
 
-@public
+@external
 def transferFrom(_from: address, _to: address, _value: uint256) -> bool:
     return self.token_address.transferFrom(_from, _to, _value)
 
-@public
+@external
 def allowance(_owner: address, _spender: address) -> uint256:
     return self.token_address.allowance(_owner, _spender)
     """
@@ -97,7 +96,7 @@ def test_call_transfer(w3, erc20, erc20_caller, assert_tx_failed):
     # Negative transfer value.
     assert_tx_failed(
         function_to_test=lambda: erc20_caller.transfer(w3.eth.accounts[1], -1),
-        exception=ValidationError
+        exception=ValidationError,
     )
 
 

@@ -1,90 +1,50 @@
 import pytest
-from pytest import raises
 
 from vyper import compiler
 from vyper.exceptions import VariableDeclarationException
 
 fail_list = [
     """
-x: int128
-x: int128
-    """,
-    """
 CALLDATACOPY: int128
     """,
     """
-int128: bytes[3]
+@external
+def foo():
+    BALANCE: int128 = 45
     """,
     """
-@public
+@external
 def foo():
-    BALANCE = 45
+    true: int128 = 3
     """,
     """
-@public
-def foo():
-    true = 3
+q: int128 = 12
+@external
+def foo() -> int128:
+    return self.q
     """,
     """
-x: uint256
-
-@public
-def foo():
-    send(0x1234567890123456789012345678901234567890, x)
+struct S:
+    x: int128
+s: S = S({x: int128}, 1)
     """,
     """
-@public
-def foo():
-    x = 5
-    x: int128 = 0
+struct S:
+    x: int128
+s: S = S()
     """,
     """
-@public
-def foo():
-    x: int128 = 0
-    x: int128 = 0
+foo.a: int128
     """,
     """
-@public
+@external
 def foo():
-    int128 = 5
-    """,
-    """
-@public
-def foo():
-    bork = zork
-    """,
-    """
-b: int128
-@public
-def foo():
-    b = 7
-    """,
-    """
-x: int128
-@public
-def foo():
-    x = 5
-    """,
-    """
-@public
-def foo():
-    msg: bool = True
-    """,
-    """
-@public
-def foo():
-    struct: bool = True
-    """,
-    """
-@public
-def foo():
-    x = as_wei_value(5.1824, "babbage")
+    bar.x: int128 = 0
     """,
 ]
 
 
-@pytest.mark.parametrize('bad_code', fail_list)
+@pytest.mark.parametrize("bad_code", fail_list)
 def test_variable_declaration_exception(bad_code):
-    with raises(VariableDeclarationException):
+    with pytest.raises(VariableDeclarationException):
         compiler.compile_code(bad_code)

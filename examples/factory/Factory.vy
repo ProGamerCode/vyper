@@ -1,15 +1,15 @@
-contract Exchange:
-    def token() -> address: constant
-    def receive(_from: address, _amt: uint256): modifying
-    def transfer(_to: address, _amt: uint256): modifying
+interface Exchange:
+    def token() -> address: view
+    def receive(_from: address, _amt: uint256): nonpayable
+    def transfer(_to: address, _amt: uint256): nonpayable
 
 
 exchange_codehash: public(bytes32)
 # Maps token addresses to exchange addresses
-exchanges: public(map(address, address))
+exchanges: public(HashMap[address, address])
 
 
-@public
+@external
 def __init__(_exchange_codehash: bytes32):
     # Register the exchange code hash during deployment of the factory
     self.exchange_codehash = _exchange_codehash
@@ -22,7 +22,7 @@ def __init__(_exchange_codehash: bytes32):
 #       need to be handled appropiately.
 
 
-@public
+@external
 def register():
     # Verify code hash is the exchange's code hash
     assert msg.sender.codehash == self.exchange_codehash
@@ -33,7 +33,7 @@ def register():
     self.exchanges[Exchange(msg.sender).token()] = msg.sender
 
 
-@public
+@external
 def trade(_token1: address, _token2: address, _amt: uint256):
     # Perform a straight exchange of token1 to token 2 (1:1 price)
     # NOTE: Any practical implementation would need to solve the price oracle problem

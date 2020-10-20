@@ -2,37 +2,37 @@ import pytest
 
 from vyper.compiler import compile_code
 from vyper.exceptions import (
-    FunctionDeclarationException,
     InvalidLiteral,
+    InvalidType,
     NonPayableViolation,
-    StructureException,
-    TypeMismatch,
+    StateAccessViolation,
+    UndeclaredDefinition,
 )
 
 
 def test_default_param_abi(get_contract):
     code = """
-@public
+@external
 @payable
-def safeTransferFrom(_data: bytes[100] = b"test", _b: int128 = 1):
+def safeTransferFrom(_data: Bytes[100] = b"test", _b: int128 = 1):
     pass
     """
     abi = get_contract(code)._classic_contract.abi
 
     assert len(abi) == 3
-    assert set([fdef['name'] for fdef in abi]) == {'safeTransferFrom'}
-    assert abi[0]['inputs'] == []
-    assert abi[1]['inputs'] == [{'type': 'bytes', 'name': '_data'}]
-    assert abi[2]['inputs'] == [
-        {'type': 'bytes', 'name': '_data'},
-        {'type': 'int128', 'name': '_b'},
+    assert set([fdef["name"] for fdef in abi]) == {"safeTransferFrom"}
+    assert abi[0]["inputs"] == []
+    assert abi[1]["inputs"] == [{"type": "bytes", "name": "_data"}]
+    assert abi[2]["inputs"] == [
+        {"type": "bytes", "name": "_data"},
+        {"type": "int128", "name": "_b"},
     ]
 
 
 def test_basic_default_param_passthrough(get_contract):
     code = """
-@public
-def fooBar(_data: bytes[100] = "test", _b: int128 = 1) -> int128:
+@external
+def fooBar(_data: Bytes[100] = b"test", _b: int128 = 1) -> int128:
     return 12321
     """
 
@@ -45,7 +45,7 @@ def fooBar(_data: bytes[100] = "test", _b: int128 = 1) -> int128:
 
 def test_basic_default_param_set(get_contract):
     code = """
-@public
+@external
 def fooBar(a:int128, b: uint256 = 333) -> (int128, uint256):
     return a, b
     """
@@ -57,15 +57,15 @@ def fooBar(a:int128, b: uint256 = 333) -> (int128, uint256):
 
 def test_basic_default_param_set_2args(get_contract):
     code = """
-@public
+@external
 def fooBar(a:int128, b: uint256 = 999, c: address = 0x0000000000000000000000000000000000000001) -> (int128, uint256, address):  # noqa: E501
     return a, b, c
     """
 
     c = get_contract(code)
-    c_default_value = '0x0000000000000000000000000000000000000001'
+    c_default_value = "0x0000000000000000000000000000000000000001"
     b_default_value = 999
-    addr2 = '0x1000000000000000000000000000000000004321'
+    addr2 = "0x1000000000000000000000000000000000004321"
 
     # b default value, c default value
     assert c.fooBar(123) == [123, b_default_value, c_default_value]
@@ -77,8 +77,8 @@ def fooBar(a:int128, b: uint256 = 999, c: address = 0x00000000000000000000000000
 
 def test_default_param_bytes(get_contract):
     code = """
-@public
-def fooBar(a: bytes[100], b: int128, c: bytes[100] = "testing", d: uint256 = 999) -> (bytes[100], int128, bytes[100], uint256):  # noqa: E501
+@external
+def fooBar(a: Bytes[100], b: int128, c: Bytes[100] = b"testing", d: uint256 = 999) -> (Bytes[100], int128, Bytes[100], uint256):  # noqa: E501
     return a, b, c, d
     """
     c = get_contract(code)
@@ -86,7 +86,7 @@ def fooBar(a: bytes[100], b: int128, c: bytes[100] = "testing", d: uint256 = 999
     d_default = 999
 
     # c set, 7d default value
-    assert c.fooBar(b"booo", 12321, b'woo') == [b"booo", 12321, b'woo', d_default]
+    assert c.fooBar(b"booo", 12321, b"woo") == [b"booo", 12321, b"woo", d_default]
     # d set, c set
     assert c.fooBar(b"booo", 12321, b"lucky", 777) == [b"booo", 12321, b"lucky", 777]
     # no default values
@@ -95,8 +95,8 @@ def fooBar(a: bytes[100], b: int128, c: bytes[100] = "testing", d: uint256 = 999
 
 def test_default_param_array(get_contract):
     code = """
-@public
-def fooBar(a: bytes[100], b: uint256[2], c: bytes[6] = "hello", d: int128[3] = [6, 7, 8]) -> (bytes[100], uint256, bytes[6], int128):  # noqa: E501
+@external
+def fooBar(a: Bytes[100], b: uint256[2], c: Bytes[6] = b"hello", d: int128[3] = [6, 7, 8]) -> (Bytes[100], uint256, Bytes[6], int128):  # noqa: E501
     return a, b[1], c, d[2]
     """
     c = get_contract(code)
@@ -104,16 +104,55 @@ def fooBar(a: bytes[100], b: uint256[2], c: bytes[6] = "hello", d: int128[3] = [
     d_default = 8
 
     # c set, d default value
-    assert c.fooBar(b"booo", [99, 88], b'woo') == [b"booo", 88, b'woo', d_default]
+    assert c.fooBar(b"booo", [99, 88], b"woo") == [b"booo", 88, b"woo", d_default]
     # d set, c set
     assert c.fooBar(b"booo", [22, 11], b"lucky", [24, 25, 26]) == [b"booo", 11, b"lucky", 26]
     # no default values
     assert c.fooBar(b"booo", [55, 66]) == [b"booo", 66, c_default, d_default]
 
 
+def test_default_param_internal_function(get_contract):
+    code = """
+@internal
+@view
+def _foo(a: int128[3] = [1, 2, 3]) -> int128[3]:
+    b: int128[3] = a
+    return b
+
+
+@external
+@view
+def foo() -> int128[3]:
+    return self._foo([4, 5, 6])
+
+@external
+@view
+def foo2() -> int128[3]:
+    return self._foo()
+    """
+    c = get_contract(code)
+
+    assert c.foo() == [4, 5, 6]
+    assert c.foo2() == [1, 2, 3]
+
+
+def test_default_param_external_function(get_contract):
+    code = """
+@external
+@view
+def foo(a: int128[3] = [1, 2, 3]) -> int128[3]:
+    b: int128[3] = a
+    return b
+    """
+    c = get_contract(code)
+
+    assert c.foo([4, 5, 6]) == [4, 5, 6]
+    assert c.foo() == [1, 2, 3]
+
+
 def test_default_param_clamp(get_contract, monkeypatch, assert_tx_failed):
     code = """
-@public
+@external
 def bar(a: int128, b: int128 = -1) -> (int128, int128):  # noqa: E501
     return a, b
     """
@@ -126,28 +165,28 @@ def bar(a: int128, b: int128 = -1) -> (int128, int128):  # noqa: E501
     def validate_value(cls, value):
         pass
 
-    monkeypatch.setattr('eth_abi.encoding.NumberEncoder.validate_value', validate_value)
+    monkeypatch.setattr("eth_abi.encoding.NumberEncoder.validate_value", validate_value)
 
-    assert c.bar(200, 2**127 - 1) == [200, 2**127 - 1]
-    assert_tx_failed(lambda: c.bar(200, 2**127))
+    assert c.bar(200, 2 ** 127 - 1) == [200, 2 ** 127 - 1]
+    assert_tx_failed(lambda: c.bar(200, 2 ** 127))
 
 
 def test_default_param_private(get_contract):
     code = """
-@private
-def fooBar(a: bytes[100], b: uint256, c: bytes[20] = "crazy") -> (bytes[100], uint256, bytes[20]):
+@internal
+def fooBar(a: Bytes[100], b: uint256, c: Bytes[20] = b"crazy") -> (Bytes[100], uint256, Bytes[20]):
     return a, b, c
 
-@public
-def callMe() -> (bytes[100], uint256, bytes[20]):
+@external
+def callMe() -> (Bytes[100], uint256, Bytes[20]):
     return self.fooBar(b'I just met you', 123456)
 
-@public
-def callMeMaybe() -> (bytes[100], uint256, bytes[20]):
+@external
+def callMeMaybe() -> (Bytes[100], uint256, Bytes[20]):
     # return self.fooBar(b'here is my number', 555123456, b'baby')
-    a: bytes[100] = b""
+    a: Bytes[100] = b""
     b: uint256 = 0
-    c: bytes[20] = b""
+    c: Bytes[20] = b""
     a, b, c = self.fooBar(b'here is my number', 555123456, b'baby')
     return a, b, c
     """
@@ -155,18 +194,18 @@ def callMeMaybe() -> (bytes[100], uint256, bytes[20]):
     c = get_contract(code)
 
     # assert c.callMe() == [b'hello there', 123456, b'crazy']
-    assert c.callMeMaybe() == [b'here is my number', 555123456, b'baby']
+    assert c.callMeMaybe() == [b"here is my number", 555123456, b"baby"]
 
 
 def test_builtin_constants_as_default(get_contract):
     code = """
-@public
+@external
 def foo(a: int128 = MIN_INT128, b: int128 = MAX_INT128) -> (int128, int128):
     return a, b
     """
     c = get_contract(code)
-    assert c.foo() == [-(2**127), 2**127-1]
-    assert c.foo(31337) == [31337, 2**127-1]
+    assert c.foo() == [-(2 ** 127), 2 ** 127 - 1]
+    assert c.foo(31337) == [31337, 2 ** 127 - 1]
     assert c.foo(13, 42) == [13, 42]
 
 
@@ -174,35 +213,35 @@ def test_environment_vars_as_default(get_contract):
     code = """
 xx: uint256
 
-@public
+@external
 @payable
 def foo(a: uint256 = msg.value) -> bool:
     self.xx += a
     return True
 
-@public
+@external
 def bar() -> uint256:
     return self.xx
 
-@public
+@external
 def get_balance() -> uint256:
     return self.balance
     """
     c = get_contract(code)
-    c.foo(transact={'value': 31337})
+    c.foo(transact={"value": 31337})
     assert c.bar() == 31337
-    c.foo(666, transact={'value': 9001})
+    c.foo(666, transact={"value": 9001})
     assert c.bar() == 31337 + 666
     assert c.get_balance() == 31337 + 9001
 
 
 PASSING_CONTRACTS = [
     """
-@public
+@external
 def foo(a: bool = True, b: bool[2] = [True, False]): pass
     """,
     """
-@public
+@external
 def foo(
     a: address = 0x0c04792e92e6b2896a18568fD936781E9857feB7,
     b: address[2] = [
@@ -211,104 +250,141 @@ def foo(
     ]): pass
     """,
     """
-@public
+@external
 def foo(a: uint256 = 12345, b: uint256[2] = [31337, 42]): pass
     """,
     """
-@public
+@external
 def foo(a: int128 = -31, b: int128[2] = [64, -46]): pass
     """,
     """
-@public
-def foo(a: bytes[6] = "potato"): pass
+@external
+def foo(a: Bytes[6] = b"potato"): pass
     """,
     """
-@public
+@external
 def foo(a: decimal = 3.14, b: decimal[2] = [1.337, 2.69]): pass
     """,
     """
-@public
+@external
 def foo(a: address = msg.sender, b: address[3] = [msg.sender, tx.origin, block.coinbase]): pass
     """,
     """
-@public
+@external
 @payable
 def foo(a: uint256 = msg.value): pass
     """,
+    """
+@external
+def foo(a: uint256 = 2**8): pass
+     """,
 ]
 
 
-@pytest.mark.parametrize('code', PASSING_CONTRACTS)
+@pytest.mark.parametrize("code", PASSING_CONTRACTS)
 def test_good_default_params(code):
     assert compile_code(code)
 
 
 FAILING_CONTRACTS = [
-    ("""
+    (
+        """
 # default params must be literals
 x: int128
 
-@public
+@external
 def foo(xx: int128, y: int128 = xx): pass
-    """, FunctionDeclarationException),
-    ("""
+    """,
+        UndeclaredDefinition,
+    ),
+    (
+        """
 # value out of range for uint256
-@public
+@external
 def foo(a: uint256 = -1): pass
-    """, InvalidLiteral),
-    ("""
+    """,
+        InvalidType,
+    ),
+    (
+        """
 # value out of range for int128
-@public
+@external
 def foo(a: int128 = 170141183460469231731687303715884105728): pass
-    """, InvalidLiteral),
-    ("""
+    """,
+        InvalidType,
+    ),
+    (
+        """
 # value out of range for uint256 array
-@public
+@external
 def foo(a: uint256[2] = [13, -42]): pass
-     """, InvalidLiteral),
-    ("""
+     """,
+        InvalidType,
+    ),
+    (
+        """
 # value out of range for int128 array
-@public
+@external
 def foo(a: int128[2] = [12, 170141183460469231731687303715884105728]): pass
-    """, TypeMismatch),
-    ("""
+    """,
+        InvalidType,
+    ),
+    (
+        """
 # array type mismatch
-@public
+@external
 def foo(a: uint256[2] = [12, True]): pass
-    """, TypeMismatch),
-    ("""
+    """,
+        InvalidLiteral,
+    ),
+    (
+        """
 # wrong length
-@public
+@external
 def foo(a: uint256[2] = [1, 2, 3]): pass
-    """, TypeMismatch),
-    ("""
+    """,
+        InvalidType,
+    ),
+    (
+        """
 # default params must be literals
 x: uint256
 
-@public
+@external
 def foo(a: uint256 = self.x): pass
-     """, FunctionDeclarationException),
-    ("""
+     """,
+        StateAccessViolation,
+    ),
+    (
+        """
 # default params must be literals inside array
 x: uint256
 
-@public
+@external
 def foo(a: uint256[2] = [2, self.x]): pass
-     """, FunctionDeclarationException),
-    ("""
+     """,
+        StateAccessViolation,
+    ),
+    (
+        """
 # msg.value in a nonpayable
-@public
+@external
 def foo(a: uint256 = msg.value): pass
-""", NonPayableViolation),
-    ("""
+""",
+        NonPayableViolation,
+    ),
+    (
+        """
 # msg.sender in a private function
-@private
+@internal
 def foo(a: address = msg.sender): pass
-    """, StructureException),
+    """,
+        StateAccessViolation,
+    ),
 ]
 
 
-@pytest.mark.parametrize('failing_contract', FAILING_CONTRACTS)
+@pytest.mark.parametrize("failing_contract", FAILING_CONTRACTS)
 def test_bad_default_params(failing_contract, assert_compile_failed):
     code, exc = failing_contract
     assert_compile_failed(lambda: compile_code(code), exc)

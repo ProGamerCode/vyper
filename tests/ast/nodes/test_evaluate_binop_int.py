@@ -18,7 +18,7 @@ st_int32 = st.integers(min_value=-(2 ** 32), max_value=2 ** 32)
 @pytest.mark.parametrize("op", "+-*/%")
 def test_binop_int128(get_contract, assert_tx_failed, op, left, right):
     source = f"""
-@public
+@external
 def foo(a: int128, b: int128) -> int128:
     return a {op} b
     """
@@ -47,7 +47,7 @@ st_uint64 = st.integers(min_value=0, max_value=2 ** 64)
 @pytest.mark.parametrize("op", "+-*/%")
 def test_binop_uint256(get_contract, assert_tx_failed, op, left, right):
     source = f"""
-@public
+@external
 def foo(a: uint256, b: uint256) -> uint256:
     return a {op} b
     """
@@ -67,17 +67,17 @@ def foo(a: uint256, b: uint256) -> uint256:
         assert_tx_failed(lambda: contract.foo(left, right))
 
 
+@pytest.mark.xfail(reason="need to implement safe exponentiation logic")
 @pytest.mark.fuzzing
 @settings(max_examples=50, deadline=1000)
 @given(
-    left=st.integers(min_value=2, max_value=245),
-    right=st.integers(min_value=0, max_value=16),
+    left=st.integers(min_value=2, max_value=245), right=st.integers(min_value=0, max_value=16),
 )
 @example(left=0, right=0)
 @example(left=0, right=1)
 def test_binop_int_pow(get_contract, left, right):
     source = """
-@public
+@external
 def foo(a: uint256, b: uint256) -> uint256:
     return a ** b
     """
@@ -93,9 +93,7 @@ def foo(a: uint256, b: uint256) -> uint256:
 @pytest.mark.fuzzing
 @settings(max_examples=50, deadline=1000)
 @given(
-    values=st.lists(
-        st.integers(min_value=-256, max_value=256), min_size=2, max_size=10
-    ),
+    values=st.lists(st.integers(min_value=-256, max_value=256), min_size=2, max_size=10),
     ops=st.lists(st.sampled_from("+-*/%"), min_size=11, max_size=11),
 )
 def test_binop_nested(get_contract, assert_tx_failed, values, ops):
@@ -106,7 +104,7 @@ def test_binop_nested(get_contract, assert_tx_failed, values, ops):
     return_value = return_value.rsplit(maxsplit=1)[0]
 
     source = f"""
-@public
+@external
 def foo({input_value}) -> int128:
     return {return_value}
     """

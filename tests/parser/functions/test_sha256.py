@@ -1,9 +1,13 @@
 import hashlib
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("memory_mocker")
+
 
 def test_sha256_string_literal(get_contract_with_gas_estimation):
     code = """
-@public
+@external
 def bar() -> bytes32:
     return sha256("test")
     """
@@ -15,7 +19,7 @@ def bar() -> bytes32:
 
 def test_sha256_literal_bytes(get_contract_with_gas_estimation):
     code = """
-@public
+@external
 def bar() -> (bytes32 , bytes32):
     x: bytes32 = sha256("test")
     y: bytes32 = sha256(b"test")
@@ -28,7 +32,7 @@ def bar() -> (bytes32 , bytes32):
 
 def test_sha256_bytes32(get_contract_with_gas_estimation):
     code = """
-@public
+@external
 def bar(a: bytes32) -> bytes32:
     return sha256(a)
     """
@@ -41,8 +45,8 @@ def bar(a: bytes32) -> bytes32:
 
 def test_sha256_bytearraylike(get_contract_with_gas_estimation):
     code = """
-@public
-def bar(a: string[100]) -> bytes32:
+@external
+def bar(a: String[100]) -> bytes32:
     return sha256(a)
     """
 
@@ -56,13 +60,13 @@ def bar(a: string[100]) -> bytes32:
 
 def test_sha256_bytearraylike_storage(get_contract_with_gas_estimation):
     code = """
-a: public(bytes[100])
+a: public(Bytes[100])
 
-@public
-def set(b: bytes[100]):
+@external
+def set(b: Bytes[100]):
     self.a = b
 
-@public
+@external
 def bar() -> bytes32:
     return sha256(self.a)
     """

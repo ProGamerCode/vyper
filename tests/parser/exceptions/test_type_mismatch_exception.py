@@ -6,14 +6,15 @@ from vyper.exceptions import TypeMismatch
 
 fail_list = [
     """
-@public
-def test_func() -> int128:
-    return (1, 2)
+@external
+def foo():
+    b: Bytes[1] = 0x05
+    x: uint256 = as_wei_value(b, "babbage")
     """,
 ]
 
 
-@pytest.mark.parametrize('bad_code', fail_list)
+@pytest.mark.parametrize("bad_code", fail_list)
 def test_type_mismatch_exception(bad_code):
     with raises(TypeMismatch):
         compiler.compile_code(bad_code)

@@ -45,7 +45,7 @@ enables the use of key-value pairs to keep proper track of the auctions withdraw
 
 You may notice all of the variables being passed into the ``public``
 function. By declaring the variable *public*, the variable is
-callable by external contracts. Initializing the variables without the  ``public``
+callable by external contracts. Initializing the variables without the ``public``
 function defaults to a private declaration and thus only accessible to methods
 within the same contract. The ``public`` function additionally creates a
 ‘getter’ function for the variable, accessible through an external call such as
@@ -84,8 +84,8 @@ contract, we are provided with a built-in variable ``msg`` and we can access
 the public address of any method caller with ``msg.sender``. Similarly, the
 amount of ether a user sends can be accessed by calling ``msg.value``.
 
-.. note:: ``msg.sender`` and ``msg.value`` can only be accessed from public
-  functions. If you require these values within a private function they must be passed as parameters.
+.. note:: ``msg.sender`` and ``msg.value`` can only be accessed from external
+  functions. If you require these values within an internal function they must be passed as parameters.
 
 Here, we first check whether the current time is before the auction's end time
 using the ``assert`` function which takes any boolean statement. We also check
@@ -151,8 +151,8 @@ While this blind auction is almost functionally identical to the blind auction i
 
 .. literalinclude:: ../examples/auctions/blind_auction.vy
   :language: python
-  :lineno-start: 26
-  :lines: 26-28
+  :lineno-start: 28
+  :lines: 28-30
 
 One key difference is that, because Vyper does not allow for dynamic arrays, we
 have limited the number of bids that can be placed by one address to 128 in this
@@ -419,8 +419,8 @@ Let’s move onto the constructor.
   :lineno-start: 53
   :lines: 53-62
 
-.. note:: ``msg.sender`` and ``msg.value`` can only be accessed from public
-  functions. If you require these values within a private function they must be
+.. note:: ``msg.sender`` and ``msg.value`` can only be accessed from external
+  functions. If you require these values within an internal function they must be
   passed as parameters.
 
 In the constructor, we hard-coded the contract to accept an
@@ -442,7 +442,7 @@ Now that the initial setup is done, lets take a look at the functionality.
   :lineno-start: 66
   :lines: 66-75
 
-.. note:: Throughout this contract, we use a pattern where ``@public`` functions return data from ``@private`` functions that have the same name prepended with an underscore. This is because Vyper does not allow calls between public functions within the same contract. The private function handles the logic and allows internal access, while the public function acts as a getter to allow external viewing.
+.. note:: Throughout this contract, we use a pattern where ``@external`` functions return data from ``@internal`` functions that have the same name prepended with an underscore. This is because Vyper does not allow calls between external functions within the same contract. The internal function handles the logic and allows internal access, while the external function acts as a getter to allow external viewing.
 
 We need a way to control who has the ability to vote. The method
 ``giveRightToVote()`` is a method callable by only the chairperson by taking
@@ -482,10 +482,10 @@ proposals ``voteCount`` by the voter’s ``weight``.
 With all the basic functionality complete, what’s left is simply returning
 the winning proposal. To do this, we have two methods: ``winningProposal()``,
 which returns the key of the proposal, and ``winnerName()``, returning the
-name of the proposal. Notice the ``@constant`` decorator on these two methods.
+name of the proposal. Notice the ``@view`` decorator on these two methods.
 We do this because the two methods only read the blockchain state and do not
 modify it. Remember, reading the blockchain state is free; modifying the state
-costs gas. By having the ``@constant`` decorator, we let the EVM know that this
+costs gas. By having the ``@view`` decorator, we let the EVM know that this
 is a read-only function and we benefit by saving gas fees.
 
 .. literalinclude:: ../examples/voting/ballot.vy
@@ -498,7 +498,7 @@ mapping. We will keep track of greatest number of votes and the winning
 proposal with the variables ``winningVoteCount`` and ``winningProposal``,
 respectively by looping through all the proposals.
 
-``winningProposal()`` is a public function allowing external access to ``_winningProposal()``.
+``winningProposal()`` is an external function allowing access to ``_winningProposal()``.
 
 .. literalinclude:: ../examples/voting/ballot.vy
   :language: python
@@ -535,7 +535,7 @@ Let's get started.
   :language: python
   :linenos:
 
-.. note:: Throughout this contract, we use a pattern where ``@public`` functions return data from ``@private`` functions that have the same name prepended with an underscore. This is because Vyper does not allow calls between public functions within the same contract. The private function handles the logic and allows internal access, while the public function acts as a getter to allow external viewing.
+.. note:: Throughout this contract, we use a pattern where ``@external`` functions return data from ``@internal`` functions that have the same name prepended with an underscore. This is because Vyper does not allow calls between external functions within the same contract. The internal function handles the logic, while the external function acts as a getter to allow viewing.
 
 The contract contains a number of methods that modify the contract state as
 well as a few 'getter' methods to read it. We first declare several events
@@ -544,8 +544,8 @@ function definitions.
 
 .. literalinclude:: ../examples/stock/company.vy
   :language: python
-  :lineno-start: 7
-  :lines: 7-13
+  :lineno-start: 3
+  :lines: 3-27
 
 We initiate the ``company`` variable to be of type ``address`` that's public.
 The ``totalShares`` variable is of type ``currency_value``, which in this case
@@ -555,8 +555,8 @@ address to the number of shares the address owns.
 
 .. literalinclude:: ../examples/stock/company.vy
   :language: python
-  :lineno-start: 16
-  :lines: 16-26
+  :lineno-start: 30
+  :lines: 30-40
 
 In the constructor, we set up the contract to check for valid inputs during
 the initialization of the contract via the two ``assert`` statements. If the
@@ -566,18 +566,18 @@ company's address is initialized to hold all shares of the company in the
 
 .. literalinclude:: ../examples/stock/company.vy
   :language: python
-  :lineno-start: 29
-  :lines: 29-38
+  :lineno-start: 42
+  :lines: 42-52
 
-We will be seeing a few ``@constant`` decorators in this contract—which is
+We will be seeing a few ``@view`` decorators in this contract—which is
 used to decorate methods that simply read the contract state or return a simple
 calculation on the contract state without modifying it. Remember, reading the
 blockchain is free, writing on it is not. Since Vyper is a statically typed
 language, we see an arrow following the definition of the ``_stockAvailable()``
 method, which simply represents the data type which the function is expected
 to return. In the method, we simply key into ``self.holdings`` with the
-company's address and check it's holdings.  Because ``_stockAvailable()`` is a
-private method, we also include the public ``stockAvailable()`` method to allow
+company's address and check it's holdings.  Because ``_stockAvailable()`` is an
+internal method, we also include the ``stockAvailable()`` method to allow
 external access.
 
 Now, lets take a look at a method that lets a person buy stock from the
@@ -585,8 +585,8 @@ company's holding.
 
 .. literalinclude:: ../examples/stock/company.vy
   :language: python
-  :lineno-start: 41
-  :lines: 41-56
+  :lineno-start: 55
+  :lines: 55-70
 
 The ``buyStock()`` method is a ``@payable`` method which takes an amount of
 ether sent and calculates the ``buyOrder`` (the stock value equivalence at
@@ -597,25 +597,25 @@ Now that people can buy shares, how do we check someone's holdings?
 
 .. literalinclude:: ../examples/stock/company.vy
   :language: python
-  :lineno-start: 58
-  :lines: 58-68
+  :lineno-start: 73
+  :lines: 73-82
 
-The ``_getHolding()`` is another ``@constant`` method that takes an ``address``
+The ``_getHolding()`` is another ``@view`` method that takes an ``address``
 and returns its corresponding stock holdings by keying into ``self.holdings``.
-Again, a public function ``getHolding()`` is included to allow external access.
+Again, an external function ``getHolding()`` is included to allow access.
 
 .. literalinclude:: ../examples/stock/company.vy
   :language: python
-  :lineno-start: 71
-  :lines: 71-74
+  :lineno-start: 85
+  :lines: 85-88
 
 To check the ether balance of the company, we can simply call the getter method
 ``cash()``.
 
 .. literalinclude:: ../examples/stock/company.vy
   :language: python
-  :lineno-start: 77
-  :lines: 77-93
+  :lineno-start: 91
+  :lines: 91-107
 
 To sell a stock, we have the ``sellStock()`` method which takes a number of
 stocks a person wishes to sell, and sends the equivalent value in ether to the
@@ -627,8 +627,8 @@ from the seller and given to the company. The ethers are then sent to the seller
 
 .. literalinclude:: ../examples/stock/company.vy
   :language: python
-  :lineno-start: 97
-  :lines: 97-108
+  :lineno-start: 111
+  :lines: 111-122
 
 A stockholder can also transfer their stock to another stockholder with the
 ``transferStock()`` method. The method takes a receiver address and the number
@@ -638,8 +638,8 @@ both conditions are satisfied, the transfer is made.
 
 .. literalinclude:: ../examples/stock/company.vy
   :language: python
-  :lineno-start: 111
-  :lines: 111-122
+  :lineno-start: 125
+  :lines: 125-136
 
 The company is also allowed to pay out an amount in ether to an address by
 calling the ``payBill()`` method. This method should only be callable by the
@@ -650,8 +650,8 @@ sends its ether to an address.
 
 .. literalinclude:: ../examples/stock/company.vy
   :language: python
-  :lineno-start: 125
-  :lines: 125-134
+  :lineno-start: 139
+  :lines: 139-148
 
 We can also check how much the company has raised by multiplying the number of
 shares the company has sold and the price of each share. Internally, we get
@@ -659,8 +659,8 @@ this value by calling the ``_debt()`` method. Externally it is accessed via ``de
 
 .. literalinclude:: ../examples/stock/company.vy
   :language: python
-  :lineno-start: 139
-  :lines: 139-142
+  :lineno-start: 153
+  :lines: 153-156
 
 Finally, in this ``worth()`` method, we can check the worth of a company by
 subtracting its debt from its ether balance.

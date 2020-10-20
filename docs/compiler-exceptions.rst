@@ -24,15 +24,11 @@ of the error within the code:
 
 .. py:exception:: CallViolation
 
-    Raises on an illegal function call, such as attempting to call between two public functions.
+    Raises on an illegal function call, such as attempting to call between two external functions.
 
 .. py:exception:: ArrayIndexException
 
     Raises when an array index is out of bounds.
-
-.. py:exception:: ConstancyViolation
-
-    Raises when attempting to perform a modifying action within a constant context. For example, writing to storage in a ``@constant`` function or modifying a constant variable.
 
 .. py:exception:: EventDeclarationException
 
@@ -44,7 +40,11 @@ of the error within the code:
 
 .. py:exception:: FunctionDeclarationException
 
-    Raises when a function declaration is invalid.
+    Raises when a function declaration is invalid, for example because of incorrect or mismatched return values.
+
+.. py:exception:: ImmutableViolation
+
+    Raises when attempting to perform a change a variable, constant or definition that cannot be changed. For example, trying to update a constant, or trying to assign to a function definition.
 
 .. py:exception:: InterfaceViolation
 
@@ -56,13 +56,15 @@ of the error within the code:
 
 .. py:exception:: InvalidLiteral
 
-    Raises when attempting to use a literal value where the type is correct, but the value is still invalid in some way. For example, an address that is not check-summed.
+    Raises when no valid type can be found for a literal value.
 
     .. code-block:: python
 
-        @public
+        @external
         def foo():
-            bar: address = 0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+            bar: decimal = 3.123456789123456789
+
+    This example raises ``InvalidLiteral`` because the given literal value has too many decimal places and so cannot be assigned any valid Vyper type.
 
 .. py:exception:: InvalidOperation
 
@@ -70,9 +72,9 @@ of the error within the code:
 
     .. code-block:: python
 
-        @public
+        @external
         def foo():
-            a: string[10] = "hello" * 2
+            a: String[10] = "hello" * 2
 
     This example raises ``InvalidOperation`` because multiplication is not possible on string types.
 
@@ -84,7 +86,7 @@ of the error within the code:
 
         baz: int128
 
-        @public
+        @external
         def foo():
             bar: int128 = baz
 
@@ -92,23 +94,19 @@ of the error within the code:
 
 .. py:exception:: InvalidType
 
-    Raises when attempting to assign to an invalid type, or perform an action on a variable of the wrong type.
+    Raises when using an invalid literal value for the given type.
 
     .. code-block:: python
 
-        bids: map(address, Bid[128])
-        bidCounts: map(addres, int128)
+        @external
+        def foo():
+            bar: int128 = 3.5
 
-    In the above example, the variable type ``address`` is misspelled.  Any word that is not a reserved word, and declares a variable type will
-    return this error.
+    This example raises ``InvalidType`` because ``3.5`` is a valid literal value, but cannot be cast as ``int128``.
 
-    .. code-block:: python
+.. py:exception:: IteratorException
 
-        vyper.exceptions.InvalidType: line 28:15 Invalid base type: addres
-                 27 bids: map(address, Bid[128])
-            ---> 28 bidCounts: map(addres, int128)
-            -----------------------^
-                 29
+   Raises when an iterator is constructed or used incorrectly.
 
 .. py:exception:: JSONError
 
@@ -120,7 +118,7 @@ of the error within the code:
 
 .. py:exception:: NatSpecSyntaxException
 
-    Raises when a contract contains an invalid :ref:`NatSpec<structure-metadata>` docstring.
+    Raises when a contract contains an invalid :ref:`NatSpec<natspec>` docstring.
 
     .. code-block:: python
 
@@ -130,20 +128,23 @@ of the error within the code:
         -------------^
              15     @return always True
 
-
 .. py:exception:: NonPayableViolation
 
-    Raises when attempting to access ``msg.value`` from within a private function.
+    Raises when attempting to access ``msg.value`` from within a function that has not been marked as ``@payable``.
 
     .. code-block:: python
 
-        @private
+        @public
         def _foo():
             bar: uint256 = msg.value
 
 .. py:exception:: OverflowException
 
     Raises when a numeric value is out of bounds for the given type.
+
+.. py:exception:: StateAccessViolation
+
+    Raises when attempting to perform a modifying action within view-only or stateless context. For example, writing to storage in a ``@view`` function, reading from storage in a ``@pure`` function.
 
 .. py:exception:: StructureException
 
@@ -171,16 +172,19 @@ of the error within the code:
 
 .. py:exception:: TypeMismatch
 
-    Raises when attempting to perform an action between multiple objects of incompatible types.
+    Raises when attempting to perform an action between two or more objects with known, dislike types.
 
-    .. code-block:: bash
+    .. code-block:: python
 
-        vyper.exceptions.TypeMismatch: line 4:4 Invalid type, expected: bytes32
-             3     a: uint256 = 1
-        ---> 4     b: bytes32 = a
-        -----------^
+        @external
+        def foo(:
+            bar: int128 = 3
+            foo: decimal = 4.2
 
-    ``b`` has been set as type ``bytes32`` but the assignment is to ``a`` which is ``uint256``.
+            if foo + bar > 4:
+                pass
+
+    ``foo`` has a type of ``int128`` and ``bar`` has a type of ``decimal``, so attempting to add them together  raises a ``TypeMismatch``.
 
 .. py:exception:: UndeclaredDefinition
 

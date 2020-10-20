@@ -1,30 +1,30 @@
 def test_hash_code(get_contract_with_gas_estimation, keccak):
     hash_code = """
-@public
-def foo(inp: bytes[100]) -> bytes32:
+@external
+def foo(inp: Bytes[100]) -> bytes32:
     return keccak256(inp)
 
-@public
+@external
 def foob() -> bytes32:
     return keccak256(b"inp")
 
-@public
+@external
 def bar() -> bytes32:
     return keccak256("inp")
     """
 
     c = get_contract_with_gas_estimation(hash_code)
     for inp in (b"", b"cow", b"s" * 31, b"\xff" * 32, b"\n" * 33, b"g" * 64, b"h" * 65):
-        assert '0x' + c.foo(inp).hex() == keccak(inp).hex()
+        assert "0x" + c.foo(inp).hex() == keccak(inp).hex()
 
-    assert '0x' + c.bar().hex() == keccak(b"inp").hex()
-    assert '0x' + c.foob().hex() == keccak(b"inp").hex()
+    assert "0x" + c.bar().hex() == keccak(b"inp").hex()
+    assert "0x" + c.foob().hex() == keccak(b"inp").hex()
 
 
 def test_hash_code2(get_contract_with_gas_estimation):
     hash_code2 = """
-@public
-def foo(inp: bytes[100]) -> bool:
+@external
+def foo(inp: Bytes[100]) -> bool:
     return keccak256(inp) == keccak256("badminton")
     """
     c = get_contract_with_gas_estimation(hash_code2)
@@ -34,26 +34,26 @@ def foo(inp: bytes[100]) -> bool:
 
 def test_hash_code3(get_contract_with_gas_estimation):
     hash_code3 = """
-test: bytes[100]
+test: Bytes[100]
 
-@public
-def set_test(inp: bytes[100]):
+@external
+def set_test(inp: Bytes[100]):
     self.test = inp
 
-@public
-def tryy(inp: bytes[100]) -> bool:
+@external
+def tryy(inp: Bytes[100]) -> bool:
     return keccak256(inp) == keccak256(self.test)
 
-@public
-def tryy_str(inp: string[100]) -> bool:
+@external
+def tryy_str(inp: String[100]) -> bool:
     return keccak256(inp) == keccak256(self.test)
 
-@public
-def trymem(inp: bytes[100]) -> bool:
-    x: bytes[100] = self.test
+@external
+def trymem(inp: Bytes[100]) -> bool:
+    x: Bytes[100] = self.test
     return keccak256(inp) == keccak256(x)
 
-@public
+@external
 def try32(inp: bytes32) -> bool:
     return keccak256(inp) == keccak256(self.test)
 

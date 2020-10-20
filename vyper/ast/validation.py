@@ -33,40 +33,69 @@ def validate_call_args(
     -------
         None. Raises an exception when the arguments are invalid.
     """
-    if kwargs is None:
-        kwargs = []
+
     if not isinstance(node, vy_ast.Call):
         raise StructureException("Expected Call", node)
     if not isinstance(arg_count, (int, tuple)):
         raise CompilerPanic(f"Invalid type for arg_count: {type(arg_count).__name__}")
 
+    if isinstance(node.func, vy_ast.Attribute):
+        msg = f" for call to '{node.func.attr}'"
+    elif isinstance(node.func, vy_ast.Name):
+        msg = f" for call to '{node.func.id}'"
+
     if isinstance(arg_count, int) and len(node.args) != arg_count:
+        if not node.args:
+            exc_node = node
+        elif len(node.args) < arg_count:
+            exc_node = node.args[-1]
+        else:
+            exc_node = node.args[arg_count]
         raise ArgumentException(
-            f"Invalid argument count: expected {arg_count}, got {len(node.args)}", node
-        )
-    elif (
-        isinstance(arg_count, tuple)
-        and not arg_count[0] <= len(node.args) <= arg_count[1]
-    ):
-        raise ArgumentException(
-            f"Invalid argument count: expected between "
-            f"{arg_count[0]} and {arg_count[1]}, got {len(node.args)}",
-            node,
+            f"Invalid argument count{msg}: expected {arg_count}, got {len(node.args)}", exc_node
         )
 
-    if not kwargs and node.keywords:
+    if isinstance(arg_count, tuple) and not arg_count[0] <= len(node.args) <= arg_count[1]:
+        if not node.args:
+            exc_node = node
+        elif len(node.args) < arg_count[0]:
+            exc_node = node.args[-1]
+        else:
+            exc_node = node.args[arg_count[1]]
         raise ArgumentException(
-            "Keyword arguments are not accepted here", node.keywords[0]
+            f"Invalid argument count{msg}: expected {arg_count[0]} "
+            f"to {arg_count[1]}, got {len(node.args)}",
+            exc_node,
         )
+
+    if kwargs is None:
+        if node.keywords:
+            raise ArgumentException("Keyword arguments are not accepted here", node.keywords[0])
+        return
+
+    kwargs_seen = set()
     for key in node.keywords:
         if key.arg is None:
             raise StructureException("Use of **kwargs is not supported", key.value)
         if key.arg not in kwargs:
             raise ArgumentException(f"Invalid keyword argument '{key.arg}'", key)
-        if (
-            isinstance(arg_count, tuple)
-            and kwargs.index(key.arg) < len(node.args) - arg_count[0]
-        ):
-            raise ArgumentException(
-                f"'{key.arg}' was given as a positional argument", key
-            )
+        if key.arg in kwargs_seen:
+            raise ArgumentException(f"Duplicate keyword argument '{key.arg}'", key)
+        kwargs_seen.add(key.arg)
+
+
+def validate_literal_nodes(vyper_module: vy_ast.Module) -> None:
+    """
+    Individually validate Vyper AST nodes.
+
+    Calls the `validate` method of each node to verify that literal nodes
+    do not contain invalid values.
+
+    Arguments
+    ---------
+    vyper_module : vy_ast.Module
+        Top level Vyper AST node.
+    """
+    for node in vyper_module.get_descendants():
+        if hasattr(node, "validate"):
+            node.validate()

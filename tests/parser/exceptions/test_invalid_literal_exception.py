@@ -6,64 +6,53 @@ from vyper.exceptions import InvalidLiteral
 
 fail_list = [
     """
-@public
-def foo():
-    x: int128 = -170141183460469231731687303715884105729 # -2**127 - 1
-    """,
-    """
-@public
-def foo():
-    x: decimal = -170141183460469231731687303715884105728.0000000001
-    """,
-    """
 b: decimal
-@public
+@external
 def foo():
     self.b = 7.5178246872145875217495129745982164981654986129846
     """,
     """
-@public
+@external
 def foo():
-    x = as_wei_value(0x05, "babbage")
+    x: uint256 = convert(-(-(-1)), uint256)
     """,
     """
-@public
+@external
+def foo(x: int128):
+    y: int128 = 7
+    for i in range(x, x + y):
+        pass
+    """,
+    """
+bar: int128[3]
+@external
 def foo():
-    send(0xde0b295669a9fd93d5f28d9ec85e40f4cb697bae, 5)
+    self.bar = []
     """,
     """
-@public
+@external
 def foo():
-    x: uint256 = convert(821649876217461872458712528745872158745214187264875632587324658732648753245328764872135671285218762145, uint256)  # noqa: E501
+    x: String[100] = "these bytes are nо gооd because the o's are from the Russian alphabet"
     """,
     """
-@public
+@external
 def foo():
-    x = convert(-(-(-1)), uint256)
+    x: String[100] = "这个傻老外不懂中文"
     """,
     """
-# Test decimal limit.
-a:decimal
-
-@public
+@external
 def foo():
-    self.a = 170141183460469231731687303715884105727.888
+    a: Bytes[100] = "ѓtest"
     """,
     """
-@public
-def overflow() -> uint256:
-    return 2**256
-    """,
-    """
-@public
-def overflow2() -> uint256:
-    a: uint256 = 2**256
-    return a
+@external
+def foo():
+    a: bytes32 = keccak256("ѓtest")
     """,
 ]
 
 
-@pytest.mark.parametrize('bad_code', fail_list)
+@pytest.mark.parametrize("bad_code", fail_list)
 def test_invalid_literal_exception(bad_code):
     with raises(InvalidLiteral):
         compiler.compile_code(bad_code)

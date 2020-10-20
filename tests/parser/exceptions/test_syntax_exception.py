@@ -6,30 +6,30 @@ from vyper.exceptions import SyntaxException
 
 fail_list = [
     """
-x: bytes[1:3]
+x: Bytes[1:3]
     """,
     """
 b: int128[int128: address]
     """,
     """
 x: int128[5]
-@public
+@external
 def foo():
     self.x[2:4] = 3
     """,
     """
-@public
+@external
 def foo():
     x: address = ~self
     """,
     """
 x: int128[5]
-@public
+@external
 def foo():
     z = self.x[2:4]
     """,
     """
-@public
+@external
 def foo():
     x: int128[5]
     z = x[2:4]
@@ -38,7 +38,7 @@ def foo():
 Transfer: event({_&rom: indexed(address)})
     """,
     """
-@public
+@external
 def test() -> uint256:
     for i in range(0, 4):
       return 0
@@ -47,59 +47,39 @@ def test() -> uint256:
     return 1
     """,
     """
-@public
+@external
 def foo():
     x = y = 3
     """,
     """
-@public
+@external
 def foo():
     x: address = create_forwarder_to(0x123456789012345678901234567890123456789)
     """,
     """
-@public
+@external
 def foo():
-    x: bytes[4] = raw_call(0x123456789012345678901234567890123456789, "cow", max_outsize=4)
+    x: Bytes[4] = raw_call(0x123456789012345678901234567890123456789, "cow", max_outsize=4)
     """,
     """
-@public
-def foo():
-    x: string[100] = "these bytes are nо gооd because the o's are from the Russian alphabet"
-    """,
-    """
-@public
-def foo():
-    x: string[100] = "这个傻老外不懂中文"
-    """,
-    """
-@public
+@external
 def foo():
     x: address = 0x12345678901234567890123456789012345678901
     """,
     """
-@public
+@external
 def foo():
     x: address = 0x01234567890123456789012345678901234567890
     """,
     """
-@public
+@external
 def foo():
     x: address = 0x123456789012345678901234567890123456789
-    """,
-    """
-@public
-def foo():
-    a: bytes[100] = "ѓtest"
-    """,
-    """
-@public
-def foo():
-    a: bytes32 = keccak256("ѓtest")
     """,
 ]
 
 
-@pytest.mark.parametrize('bad_code', fail_list)
+@pytest.mark.parametrize("bad_code", fail_list)
 def test_syntax_exception(bad_code):
     with raises(SyntaxException):
         compiler.compile_code(bad_code)

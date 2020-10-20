@@ -1,36 +1,34 @@
-
-
 def test_nonrentrant_decorator(get_contract, assert_tx_failed):
     calling_contract_code = """
-contract SpecialContract:
-    def unprotected_function(val: string[100], do_callback: bool): modifying
-    def protected_function(val: string[100], do_callback: bool): modifying
-    def special_value() -> string[100]: modifying
+interface SpecialContract:
+    def unprotected_function(val: String[100], do_callback: bool): nonpayable
+    def protected_function(val: String[100], do_callback: bool): nonpayable
+    def special_value() -> String[100]: nonpayable
 
-@public
+@external
 def updated():
     SpecialContract(msg.sender).unprotected_function('surprise!', False)
 
-@public
+@external
 def updated_protected():
     SpecialContract(msg.sender).protected_function('surprise protected!', False)  # This should fail.  # noqa: E501
     """
 
     reentrant_code = """
-contract Callback:
-    def updated(): modifying
-    def updated_protected(): modifying
+interface Callback:
+    def updated(): nonpayable
+    def updated_protected(): nonpayable
 
-special_value: public(string[100])
+special_value: public(String[100])
 callback: public(Callback)
 
-@public
+@external
 def set_callback(c: address):
     self.callback = Callback(c)
 
-@public
+@external
 @nonreentrant('protect_special_value')
-def protected_function(val: string[100], do_callback: bool) -> uint256:
+def protected_function(val: String[100], do_callback: bool) -> uint256:
     self.special_value = val
 
     if do_callback:
@@ -39,8 +37,8 @@ def protected_function(val: string[100], do_callback: bool) -> uint256:
     else:
         return 2
 
-@public
-def unprotected_function(val: string[100], do_callback: bool):
+@external
+def unprotected_function(val: String[100], do_callback: bool):
     self.special_value = val
 
     if do_callback:
@@ -54,11 +52,11 @@ def unprotected_function(val: string[100], do_callback: bool):
     assert reentrant_contract.callback() == calling_contract.address
 
     # Test unprotected function.
-    reentrant_contract.unprotected_function('some value', True, transact={})
-    assert reentrant_contract.special_value() == 'surprise!'
+    reentrant_contract.unprotected_function("some value", True, transact={})
+    assert reentrant_contract.special_value() == "surprise!"
 
     # Test protected function.
-    reentrant_contract.protected_function('some value', False, transact={})
-    assert reentrant_contract.special_value() == 'some value'
+    reentrant_contract.protected_function("some value", False, transact={})
+    assert reentrant_contract.special_value() == "some value"
 
-    assert_tx_failed(lambda: reentrant_contract.protected_function('zzz value', True, transact={}))
+    assert_tx_failed(lambda: reentrant_contract.protected_function("zzz value", True, transact={}))

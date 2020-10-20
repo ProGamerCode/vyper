@@ -1,6 +1,6 @@
 def test_conditional_return_code(get_contract_with_gas_estimation):
     conditional_return_code = """
-@public
+@external
 def foo(i: bool) -> int128:
     if i:
         return 5
@@ -14,12 +14,12 @@ def foo(i: bool) -> int128:
     assert c.foo(True) == 5
     assert c.foo(False) == 7
 
-    print('Passed conditional return tests')
+    print("Passed conditional return tests")
 
 
 def test_single_branch_underflow_public(get_contract_with_gas_estimation):
     code = """
-@public
+@external
 def doit():
     if False:
         raw_call(msg.sender, b"", max_outsize=0, value=0, gas=msg.gas)
@@ -30,11 +30,11 @@ def doit():
 
 def test_single_branch_underflow_private(get_contract_with_gas_estimation):
     code = """
-@private
+@internal
 def priv() -> uint256:
     return 1
 
-@public
+@external
 def dont_doit():
     if False:
         self.priv()

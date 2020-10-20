@@ -3,72 +3,105 @@ from pytest import raises
 
 from vyper import compiler
 from vyper.exceptions import (
-    FunctionDeclarationException,
-    InvalidLiteral,
+    ArgumentException,
+    InvalidType,
+    NamespaceCollision,
+    StateAccessViolation,
     StructureException,
-    TypeMismatch,
     VariableDeclarationException,
 )
 
 fail_list = [
     # no value
-    """
+    (
+        """
 VAL: constant(uint256)
     """,
+        VariableDeclarationException,
+    ),
     # too many args
-    """
+    (
+        """
 VAL: constant(uint256, int128) = 12
     """,
+        ArgumentException,
+    ),
     # invalid type
-    ("""
+    (
+        """
 VAL: constant(uint256) = "test"
-    """, TypeMismatch),
+    """,
+        InvalidType,
+    ),
     # invalid range
-    ("""
+    (
+        """
 VAL: constant(uint256) = -1
-    """, TypeMismatch),
+    """,
+        InvalidType,
+    ),
     # reserverd keyword
-    ("""
+    (
+        """
 wei: constant(uint256) = 1
-    """, VariableDeclarationException),
+    """,
+        VariableDeclarationException,
+    ),
     # duplicate constant name
-    ("""
+    (
+        """
 VAL: constant(uint256) = 11
 VAL: constant(uint256) = 11
-    """, VariableDeclarationException),
+    """,
+        NamespaceCollision,
+    ),
     # bytearray too long.
-    ("""
-VAL: constant(bytes[4]) = b"testtest"
-    """, TypeMismatch),
+    (
+        """
+VAL: constant(Bytes[4]) = b"testtest"
+    """,
+        InvalidType,
+    ),
     # global with same name
-    ("""
-VAL: constant(bytes[4]) = b"t"
+    (
+        """
+VAL: constant(Bytes[4]) = b"t"
 VAL: uint256
-    """, VariableDeclarationException),
+    """,
+        NamespaceCollision,
+    ),
     # signature variable with same name
-    ("""
-VAL: constant(bytes[4]) = b"t"
+    (
+        """
+VAL: constant(Bytes[4]) = b"t"
 
-@public
+@external
 def test(VAL: uint256):
     pass
-    """, FunctionDeclarationException),
-    ("""
+    """,
+        NamespaceCollision,
+    ),
+    (
+        """
 C1: constant(uint256) = block.number
-C2: constant(uint256) = convert(C1, uint256)
-    """, InvalidLiteral),
+    """,
+        StateAccessViolation,
+    ),
     # cannot assign function result to a constant
-    """
-@public
+    (
+        """
+@external
 def foo() -> uint256:
     return 42
 
-c1: constant(uint256) = foo()
-     """
+c1: constant(uint256) = self.foo
+     """,
+        StateAccessViolation,
+    ),
 ]
 
 
-@pytest.mark.parametrize('bad_code', fail_list)
+@pytest.mark.parametrize("bad_code", fail_list)
 def test_constants_fail(bad_code):
     if isinstance(bad_code, tuple):
         with raises(bad_code[1]):
@@ -84,7 +117,7 @@ VAL: constant(uint256) = 123
     """,
     """
 VAL: constant(int128) = -123
-@public
+@external
 def test() -> int128:
     return 1 * VAL
     """,
@@ -107,24 +140,29 @@ test_a: constant(uint256) = MAX_UINT256
 TEST_C: constant(int128) = 1
 TEST_WEI: constant(uint256) = 1
 
-@private
+@internal
 def test():
-   raw_call(0x0000000000000000000000000000000000000005, b'hello', max_outsize=TEST_C, gas=2000)
+   foo: Bytes[1] = raw_call(
+       0x0000000000000000000000000000000000000005, b'hello', max_outsize=TEST_C, gas=2000
+    )
 
-@private
+@internal
 def test1():
-    raw_call(0x0000000000000000000000000000000000000005, b'hello', max_outsize=256, gas=TEST_WEI)
+    foo: Bytes[256] = raw_call(
+        0x0000000000000000000000000000000000000005, b'hello', max_outsize=256, gas=TEST_WEI
+    )
     """,
     """
 LIMIT: constant(int128) = 1
 
-myEvent: event({arg1: bytes32[LIMIT]})
+event myEvent:
+    arg1: bytes32[LIMIT]
     """,
     """
 CONST: constant(uint256) = 8
 
-@public
-@constant
+@external
+@view
 def test():
     for i in range(CONST / 4):
         pass
@@ -134,8 +172,8 @@ MIN_DEPOSIT: constant(uint256) = 1  # ETH
 MAX_DEPOSIT: constant(decimal) = 32.0  # ETH
 
 @payable
-@public
-def deposit(deposit_input: bytes[2048]):
+@external
+def deposit(deposit_input: Bytes[2048]):
     assert msg.value >= as_wei_value(MIN_DEPOSIT, "ether")
     assert msg.value <= as_wei_value(MAX_DEPOSIT, "ether")
     """,
@@ -157,6 +195,6 @@ MY_DECIMAL: constant(decimal) = -1e38
 ]
 
 
-@pytest.mark.parametrize('good_code', valid_list)
+@pytest.mark.parametrize("good_code", valid_list)
 def test_constant_success(good_code):
     assert compiler.compile_code(good_code) is not None

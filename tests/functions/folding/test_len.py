@@ -6,9 +6,9 @@ from vyper import functions as vy_fn
 
 @pytest.mark.parametrize("length", [0, 1, 32, 33, 64, 65, 1024])
 def test_len_string(get_contract, length):
-    source = f"""
-@public
-def foo(a: string[1024]) -> int128:
+    source = """
+@external
+def foo(a: String[1024]) -> uint256:
     return len(a)
     """
     contract = get_contract(source)
@@ -24,9 +24,9 @@ def foo(a: string[1024]) -> int128:
 
 @pytest.mark.parametrize("length", [0, 1, 32, 33, 64, 65, 1024])
 def test_len_bytes(get_contract, length):
-    source = f"""
-@public
-def foo(a: bytes[1024]) -> int128:
+    source = """
+@external
+def foo(a: Bytes[1024]) -> uint256:
     return len(a)
     """
     contract = get_contract(source)
@@ -42,9 +42,9 @@ def foo(a: bytes[1024]) -> int128:
 
 @pytest.mark.parametrize("length", [1, 32, 33, 64, 65, 1024])
 def test_len_hex(get_contract, length):
-    source = f"""
-@public
-def foo(a: bytes[1024]) -> int128:
+    source = """
+@external
+def foo(a: Bytes[1024]) -> uint256:
     return len(a)
     """
     contract = get_contract(source)

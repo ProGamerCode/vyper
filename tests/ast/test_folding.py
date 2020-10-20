@@ -2,6 +2,7 @@ import pytest
 
 from vyper import ast as vy_ast
 from vyper.ast import folding
+from vyper.exceptions import OverflowException
 
 
 def test_integration():
@@ -29,6 +30,30 @@ def test_replace_binop_nested():
     folding.replace_literal_ops(test_ast)
 
     assert vy_ast.compare_nodes(test_ast, expected_ast)
+
+
+def test_replace_binop_nested_intermediate_overflow():
+    test_ast = vy_ast.parse_to_ast("2**255 * 2 / 10")
+    with pytest.raises(OverflowException):
+        folding.fold(test_ast)
+
+
+def test_replace_binop_nested_intermediate_underflow():
+    test_ast = vy_ast.parse_to_ast("-2**255 * 2 - 10 + 100")
+    with pytest.raises(OverflowException):
+        folding.fold(test_ast)
+
+
+def test_replace_decimal_nested_intermediate_overflow():
+    test_ast = vy_ast.parse_to_ast("170141183460469231731687303715884105726.0 + 1.1 - 10.0")
+    with pytest.raises(OverflowException):
+        folding.fold(test_ast)
+
+
+def test_replace_decimal_nested_intermediate_underflow():
+    test_ast = vy_ast.parse_to_ast("-170141183460469231731687303715884105726.0 - 2.1 + 10.0")
+    with pytest.raises(OverflowException):
+        folding.fold(test_ast)
 
 
 def test_replace_literal_ops():
@@ -63,8 +88,10 @@ constants_modified = [
     "bar: int128[FOO]",
     "[1, 2, FOO]",
     "def bar(a: int128 = FOO): pass",
-    "log.bar({bar: FOO})",
+    "log bar(FOO)",
     "FOO + 1",
+    "a: int128[FOO / 2]",
+    "a[FOO - 1] = 44",
 ]
 
 
@@ -85,8 +112,9 @@ constants_unmodified = [
     "FOO()",
     "bar = FOO()",
     "bar = self.FOO",
-    "log.bar({FOO: bar})",
+    "log FOO(bar)",
     "[1, 2, FOO()]",
+    "FOO[42] = 2",
 ]
 
 
@@ -108,6 +136,8 @@ builtins_modified = [
     "def foo(bar: int128 = MAX_INT128): pass",
     "def foo(): bar = MAX_INT128",
     "def foo(): return MAX_INT128",
+    "log foo(MAX_INT128)",
+    "log foo(42, MAX_INT128)",
 ]
 
 
@@ -127,6 +157,7 @@ builtins_unmodified = [
     "def foo(MAX_INT128: int128 = 42): pass",
     "def foo(): MAX_INT128 = 42",
     "def MAX_INT128(): pass",
+    "log MAX_INT128(42)",
 ]
 
 

@@ -7,19 +7,19 @@ buyer: address
 seller: address
 arbitrator: address
 
-@public
+@external
 def setup(_seller: address, _arbitrator: address):
     if self.buyer == ZERO_ADDRESS:
         self.buyer = msg.sender
         self.seller = _seller
         self.arbitrator = _arbitrator
 
-@public
+@external
 def finalize():
     assert msg.sender == self.buyer or msg.sender == self.arbitrator
     send(self.seller, self.balance)
 
-@public
+@external
 def refund():
     assert msg.sender == self.seller or msg.sender == self.arbitrator
     send(self.buyer, self.balance)
@@ -28,10 +28,10 @@ def refund():
     a0, a1, a2 = w3.eth.accounts[:3]
     c = get_contract_with_gas_estimation(arbitration_code, value=1)
     c.setup(a1, a2, transact={})
-    assert_tx_failed(lambda: c.finalize(transact={'from': a1}))
+    assert_tx_failed(lambda: c.finalize(transact={"from": a1}))
     c.finalize(transact={})
 
-    print('Passed escrow test')
+    print("Passed escrow test")
 
 
 def test_arbitration_code_with_init(w3, assert_tx_failed, get_contract_with_gas_estimation):
@@ -40,7 +40,7 @@ buyer: address
 seller: address
 arbitrator: address
 
-@public
+@external
 @payable
 def __init__(_seller: address, _arbitrator: address):
     if self.buyer == ZERO_ADDRESS:
@@ -48,19 +48,19 @@ def __init__(_seller: address, _arbitrator: address):
         self.seller = _seller
         self.arbitrator = _arbitrator
 
-@public
+@external
 def finalize():
     assert msg.sender == self.buyer or msg.sender == self.arbitrator
     send(self.seller, self.balance)
 
-@public
+@external
 def refund():
     assert msg.sender == self.seller or msg.sender == self.arbitrator
     send(self.buyer, self.balance)
     """
     a0, a1, a2 = w3.eth.accounts[:3]
     c = get_contract_with_gas_estimation(arbitration_code_with_init, *[a1, a2], value=1)
-    assert_tx_failed(lambda: c.finalize(transact={'from': a1}))
-    c.finalize(transact={'from': a0})
+    assert_tx_failed(lambda: c.finalize(transact={"from": a1}))
+    c.finalize(transact={"from": a0})
 
-    print('Passed escrow test with initializer')
+    print("Passed escrow test with initializer")

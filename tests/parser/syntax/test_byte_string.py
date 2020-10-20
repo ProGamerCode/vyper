@@ -4,23 +4,23 @@ from vyper import compiler
 
 valid_list = [
     """
-@public
-def foo() -> string[10]:
+@external
+def foo() -> String[10]:
     return "badminton"
     """,
     """
-@public
+@external
 def foo():
-    x: string[11] = "¡très bien!"
+    x: String[11] = "¡très bien!"
     """,
     """
-@public
-def test() -> string[100]:
+@external
+def test() -> String[100]:
     return "hello world!"
-    """
+    """,
 ]
 
 
-@pytest.mark.parametrize('good_code', valid_list)
+@pytest.mark.parametrize("good_code", valid_list)
 def test_byte_string_success(good_code):
     assert compiler.compile_code(good_code) is not None

@@ -3,12 +3,13 @@ import pytest
 from vyper.exceptions import TypeMismatch
 
 
-def test_empty_basic_type(get_contract_with_gas_estimation):
-    contracts = [  # noqa: E122
-    """
+@pytest.mark.parametrize(
+    "contract",
+    [
+        """
 foobar: int128
 
-@public
+@external
 def foo():
     self.foobar = 1
     bar: int128 = 1
@@ -19,10 +20,10 @@ def foo():
     assert self.foobar == 0
     assert bar == 0
     """,
-    """
+        """
 foobar: uint256
 
-@public
+@external
 def foo():
     self.foobar = 1
     bar: uint256 = 1
@@ -33,10 +34,10 @@ def foo():
     assert self.foobar == 0
     assert bar == 0
     """,
-    """
+        """
 foobar: bool
 
-@public
+@external
 def foo():
     self.foobar = True
     bar: bool = True
@@ -47,10 +48,10 @@ def foo():
     assert self.foobar == False
     assert bar == False
     """,
-    """
+        """
 foobar: decimal
 
-@public
+@external
 def foo():
     self.foobar = 1.0
     bar: decimal = 1.0
@@ -61,10 +62,10 @@ def foo():
     assert self.foobar == 0.0
     assert bar == 0.0
     """,
-    """
+        """
 foobar: bytes32
 
-@public
+@external
 def foo():
     self.foobar = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
     bar: bytes32 = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
@@ -75,10 +76,10 @@ def foo():
     assert self.foobar == 0x0000000000000000000000000000000000000000000000000000000000000000
     assert bar == 0x0000000000000000000000000000000000000000000000000000000000000000
     """,
-    """
+        """
 foobar: address
 
-@public
+@external
 def foo():
     self.foobar = msg.sender
     bar: address = msg.sender
@@ -88,20 +89,21 @@ def foo():
 
     assert self.foobar == ZERO_ADDRESS
     assert bar == ZERO_ADDRESS
-    """
-    ]
+    """,
+    ],
+)
+def test_empty_basic_type(contract, get_contract_with_gas_estimation):
+    c = get_contract_with_gas_estimation(contract)
+    c.foo()
 
-    for contract in contracts:
-        c = get_contract_with_gas_estimation(contract)
-        c.foo()
 
-
-def test_empty_basic_type_lists(get_contract_with_gas_estimation):
-    contracts = [  # noqa: E122
-    """
+@pytest.mark.parametrize(
+    "contract",
+    [
+        """
 foobar: int128[3]
 
-@public
+@external
 def foo():
     self.foobar = [1, 2, 3]
     bar: int128[3] = [1, 2, 3]
@@ -116,10 +118,10 @@ def foo():
     assert bar[1] == 0
     assert bar[2] == 0
     """,
-    """
+        """
 foobar: uint256[3]
 
-@public
+@external
 def foo():
     self.foobar = [1, 2, 3]
     bar: uint256[3] = [1, 2, 3]
@@ -134,10 +136,10 @@ def foo():
     assert bar[1] == 0
     assert bar[2] == 0
     """,
-    """
+        """
 foobar: bool[3]
 
-@public
+@external
 def foo():
     self.foobar = [True, True, True]
     bar: bool[3] = [True, True, True]
@@ -152,10 +154,10 @@ def foo():
     assert bar[1] == False
     assert bar[2] == False
     """,
-    """
+        """
 foobar: decimal[3]
 
-@public
+@external
 def foo():
     self.foobar = [1.0, 2.0, 3.0]
     bar: decimal[3] = [1.0, 2.0, 3.0]
@@ -170,10 +172,10 @@ def foo():
     assert bar[1] == 0.0
     assert bar[2] == 0.0
     """,
-    """
+        """
 foobar: bytes32[3]
 
-@public
+@external
 def foo():
     self.foobar = [
         0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
@@ -196,10 +198,10 @@ def foo():
     assert bar[1] == 0x0000000000000000000000000000000000000000000000000000000000000000
     assert bar[2] == 0x0000000000000000000000000000000000000000000000000000000000000000
     """,
-    """
+        """
 foobar: address[3]
 
-@public
+@external
 def foo():
     self.foobar = [msg.sender, msg.sender, msg.sender]
     bar: address[3] = [msg.sender, msg.sender, msg.sender]
@@ -213,74 +215,72 @@ def foo():
     assert bar[0] == ZERO_ADDRESS
     assert bar[1] == ZERO_ADDRESS
     assert bar[2] == ZERO_ADDRESS
-    """
-    ]
+    """,
+    ],
+)
+def test_empty_basic_type_lists(contract, get_contract_with_gas_estimation):
+    c = get_contract_with_gas_estimation(contract)
+    c.foo()
 
-    for contract in contracts:
-        c = get_contract_with_gas_estimation(contract)
-        c.foo()
 
-
-def test_clear_literals(assert_compile_failed, get_contract_with_gas_estimation):
-    contracts = [  # noqa: E122
-    """
-@public
+@pytest.mark.parametrize(
+    "contract",
+    [
+        """
+@external
 def foo() -> uint256:
     return empty(1)
     """,
-    """
-@public
+        """
+@external
 def foo() -> bool:
     return empty(bool)
     """,
-    """
-@public
+        """
+@external
 def foo() -> decimal:
     return empty(1.0)
     """,
-    """
-@public
+        """
+@external
 def foo() -> bytes32:
     return empty(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
     """,
-    """
-@public
+        """
+@external
 def foo() -> address:
     return empty(0xF5D4020dCA6a62bB1efFcC9212AAF3c9819E30D7)
     """,
-    """
-@public
+        """
+@external
 def foo():
     x: uint256 = 1
     empty(x)
-    """
-    ]
-
-    for contract in contracts:
-        assert_compile_failed(
-            lambda: get_contract_with_gas_estimation(contract),
-            Exception
-        )
+    """,
+    ],
+)
+def test_clear_literals(contract, assert_compile_failed, get_contract_with_gas_estimation):
+    assert_compile_failed(lambda: get_contract_with_gas_estimation(contract), Exception)
 
 
 def test_empty_bytes(get_contract_with_gas_estimation):
     code = """
-foobar: bytes[5]
+foobar: Bytes[5]
 
-@public
-def foo() -> (bytes[5], bytes[5]):
+@external
+def foo() -> (Bytes[5], Bytes[5]):
     self.foobar = b'Hello'
-    bar: bytes[5] = b'World'
+    bar: Bytes[5] = b'World'
 
-    self.foobar = empty(bytes[5])
-    bar = empty(bytes[5])
+    self.foobar = empty(Bytes[5])
+    bar = empty(Bytes[5])
 
     return (self.foobar, bar)
     """
 
     c = get_contract_with_gas_estimation(code)
     a, b = c.foo()
-    assert a == b == b''
+    assert a == b == b""
 
 
 def test_empty_struct(get_contract_with_gas_estimation):
@@ -295,7 +295,7 @@ struct FOOBAR:
 
 foobar: FOOBAR
 
-@public
+@external
 def foo():
     self.foobar = FOOBAR({
         a: 1,
@@ -340,42 +340,42 @@ def foo():
 @pytest.mark.xfail
 def test_param_empty(get_contract_with_gas_estimation):
     code = """
-contract Mirror:
+interface Mirror:
     # reuse the contract for this test by compiling two copies of it
-    def test_empty(xs: int128[111], ys: bytes[1024], zs: bytes[31]) -> bool: constant
+    def test_empty(xs: int128[111], ys: Bytes[1024], zs: Bytes[31]) -> bool: view
 
 # a helper function which will write all over memory with random stuff
-@private
+@internal
 def write_junk_to_memory():
     xs: int128[1024] = empty(int128[1024])
     for i in range(1024):
         xs[i] = -(i + 1)
-@private
-def priv(xs: int128[111], ys: bytes[1024], zs: bytes[31]) -> bool:
+@internal
+def priv(xs: int128[111], ys: Bytes[1024], zs: Bytes[31]) -> bool:
     return xs[1] == 0 and ys == b'' and zs == b''
 
-@public
-def test_empty(xs: int128[111], ys: bytes[1024], zs: bytes[31]) -> bool:
-    empty_bytes1024: bytes[1024] = empty(bytes[1024])
-    empty_bytes31: bytes[31] = empty(bytes[31])
+@external
+def test_empty(xs: int128[111], ys: Bytes[1024], zs: Bytes[31]) -> bool:
+    empty_bytes1024: Bytes[1024] = empty(Bytes[1024])
+    empty_bytes31: Bytes[31] = empty(Bytes[31])
     self.write_junk_to_memory()
     # no list equality yet so test some sample values
     return xs[0] == 0 and xs[110] == 0 and ys == empty_bytes1024 and zs == empty_bytes31
 
-@public
+@external
 def pub2() -> bool:
     self.write_junk_to_memory()
-    return self.priv(empty(int128[111]), empty(bytes[1024]), empty(bytes[31]))
+    return self.priv(empty(int128[111]), empty(Bytes[1024]), empty(Bytes[31]))
 
-@public
+@external
 def pub3(x: address) -> bool:
     self.write_junk_to_memory()
-    return Mirror(x).test_empty(empty(int128[111]), empty(bytes[1024]), empty(bytes[31]))
+    return Mirror(x).test_empty(empty(int128[111]), empty(Bytes[1024]), empty(Bytes[31]))
     """
     c = get_contract_with_gas_estimation(code)
     mirror = get_contract_with_gas_estimation(code)
 
-    assert c.test_empty([0]*111, b'', b'')
+    assert c.test_empty([0] * 111, b"", b"")
     assert c.pub2()
     assert c.pub3(mirror.address)
 
@@ -391,33 +391,33 @@ struct X:
     qux: int128[1]
 
 # a helper function which will write all over memory with random stuff
-@private
+@internal
 def write_junk_to_memory():
     xs: int128[1024] = empty(int128[1024])
     for i in range(1024):
         xs[i] = -(i + 1)
 
-@public
+@external
 def a() -> uint256:
     self.write_junk_to_memory()
     return empty(uint256)
 
-@public
+@external
 def b() -> uint256[5]:
     self.write_junk_to_memory()
     return empty(uint256[5])
 
-@public
+@external
 def c() -> uint256[5][5]:
     self.write_junk_to_memory()
     return empty(uint256[5][5])
 
-@public
-def d() -> bytes[55]:
+@external
+def d() -> Bytes[55]:
     self.write_junk_to_memory()
-    return empty(bytes[55])
+    return empty(Bytes[55])
 
-@public
+@external
 def e() -> X:
     self.write_junk_to_memory()
     return empty(X)
@@ -427,60 +427,60 @@ def e() -> X:
     assert c.a() == 0
     assert c.b() == [0] * 5
     assert c.c() == [[0] * 5] * 5
-    assert c.d() == b''
-    assert c.e() == (0, '0x'+'0'*40, 0x0, [0])
+    assert c.d() == b""
+    assert c.e() == (0, "0x" + "0" * 40, 0x0, [0])
 
 
 def test_map_clear(get_contract_with_gas_estimation):
     code = """
-big_storage: map(bytes32, bytes32)
+big_storage: HashMap[bytes32, bytes32]
 
-@public
+@external
 def set(key: bytes32, _value: bytes32):
     self.big_storage[key] = _value
 
-@public
+@external
 def get(key: bytes32) -> bytes32:
     return self.big_storage[key]
 
-@public
+@external
 def delete(key: bytes32):
     self.big_storage[key] = empty(bytes32)
     """
 
     c = get_contract_with_gas_estimation(code)
 
-    assert c.get(b"test") == b'\x00' * 32
+    assert c.get(b"test") == b"\x00" * 32
     c.set(b"test", b"value", transact={})
     assert c.get(b"test")[:5] == b"value"
     c.delete(b"test", transact={})
-    assert c.get(b"test") == b'\x00' * 32
+    assert c.get(b"test") == b"\x00" * 32
 
 
 def test_map_clear_nested(get_contract_with_gas_estimation):
     code = """
-big_storage: map(bytes32, map(bytes32, bytes32))
+big_storage: HashMap[bytes32, HashMap[bytes32, bytes32]]
 
-@public
+@external
 def set(key1: bytes32, key2: bytes32, _value: bytes32):
     self.big_storage[key1][key2] = _value
 
-@public
+@external
 def get(key1: bytes32, key2: bytes32) -> bytes32:
     return self.big_storage[key1][key2]
 
-@public
+@external
 def delete(key1: bytes32, key2: bytes32):
     self.big_storage[key1][key2] = empty(bytes32)
     """
 
     c = get_contract_with_gas_estimation(code)
 
-    assert c.get(b"test1", b"test2") == b'\x00' * 32
+    assert c.get(b"test1", b"test2") == b"\x00" * 32
     c.set(b"test1", b"test2", b"value", transact={})
     assert c.get(b"test1", b"test2")[:5] == b"value"
     c.delete(b"test1", b"test2", transact={})
-    assert c.get(b"test1", b"test2") == b'\x00' * 32
+    assert c.get(b"test1", b"test2") == b"\x00" * 32
 
 
 def test_map_clear_struct(get_contract_with_gas_estimation):
@@ -489,20 +489,20 @@ struct X:
     a: int128
     b: int128
 
-structmap: map(int128, X)
+structmap: HashMap[int128, X]
 
-@public
+@external
 def set():
     self.structmap[123] = X({
         a: 333,
         b: 444
     })
 
-@public
+@external
 def get() -> (int128, int128):
     return self.structmap[123].a, self.structmap[123].b
 
-@public
+@external
 def delete():
     self.structmap[123] = empty(X)
     """
@@ -516,27 +516,25 @@ def delete():
     assert c.get() == [0, 0]
 
 
-def test_clear_typecheck(get_contract, assert_compile_failed):
-    contracts = [  # noqa: E122
-    """
-@public
+@pytest.mark.parametrize(
+    "contract",
+    [
+        """
+@external
 def foo():
     xs: uint256[10] = empty(uint256[11])
     """,
-    """
-@public
+        """
+@external
 def bar():
-    ys: bytes[33] = empty(bytes[32])
+    ys: Bytes[33] = empty(Bytes[32])
     """,
-    """
-@public
+        """
+@external
 def baz():
     zs: decimal[1][1] = empty(address[1][1])
-    """
-    ]
-
-    for contract in contracts:
-        assert_compile_failed(
-            lambda: get_contract(contract),
-            TypeMismatch
-        )
+    """,
+    ],
+)
+def test_clear_typecheck(contract, get_contract, assert_compile_failed):
+    assert_compile_failed(lambda: get_contract(contract), TypeMismatch)

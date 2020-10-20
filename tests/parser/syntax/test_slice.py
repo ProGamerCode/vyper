@@ -1,54 +1,62 @@
 import pytest
-from pytest import raises
 
 from vyper import compiler
-from vyper.exceptions import TypeMismatch
+from vyper.exceptions import InvalidType, TypeMismatch
 
 fail_list = [
-    """
-@public
-def foo(inp: bytes[10]) -> bytes[2]:
+    (
+        """
+@external
+def foo(inp: Bytes[10]) -> Bytes[2]:
     return slice(inp, 2, 3)
     """,
-    """
-@public
-def foo(inp: int128) -> bytes[3]:
+        TypeMismatch,
+    ),
+    (
+        """
+@external
+def foo(inp: int128) -> Bytes[3]:
     return slice(inp, 2, 3)
     """,
-    """
-@public
-def foo(inp: bytes[10]) -> bytes[3]:
+        TypeMismatch,
+    ),
+    (
+        """
+@external
+def foo(inp: Bytes[10]) -> Bytes[3]:
     return slice(inp, 4.0, 3)
-    """
+    """,
+        InvalidType,
+    ),
 ]
 
 
-@pytest.mark.parametrize('bad_code', fail_list)
-def test_slice_fail(bad_code):
+@pytest.mark.parametrize("bad_code,exc", fail_list)
+def test_slice_fail(bad_code, exc):
 
-    with raises(TypeMismatch):
+    with pytest.raises(exc):
         compiler.compile_code(bad_code)
 
 
 valid_list = [
     """
-@public
-def foo(inp: bytes[10]) -> bytes[3]:
+@external
+def foo(inp: Bytes[10]) -> Bytes[3]:
     return slice(inp, 2, 3)
     """,
     """
-@public
-def foo(inp: bytes[10]) -> bytes[4]:
+@external
+def foo(inp: Bytes[10]) -> Bytes[4]:
     return slice(inp, 2, 3)
     """,
     """
-@public
-def foo() -> bytes[10]:
+@external
+def foo() -> Bytes[10]:
     return slice(b"badmintonzzz", 1, 10)
-    """
+    """,
 ]
 
 
-@pytest.mark.parametrize('good_code', valid_list)
+@pytest.mark.parametrize("good_code", valid_list)
 def test_slice_success(good_code):
     assert compiler.compile_code(good_code) is not None

@@ -4,7 +4,7 @@ def test_crowdfund(w3, tester, get_contract_with_gas_estimation_for_constants):
 struct Funder:
     sender: address
     value: uint256
-funders: map(int128, Funder)
+funders: HashMap[int128, Funder]
 nextFunderIndex: int128
 beneficiary: address
 deadline: public(uint256)
@@ -12,14 +12,14 @@ goal: public(uint256)
 refundIndex: int128
 timelimit: public(uint256)
 
-@public
+@external
 def __init__(_beneficiary: address, _goal: uint256, _timelimit: uint256):
     self.beneficiary = _beneficiary
     self.deadline = block.timestamp + _timelimit
     self.timelimit = _timelimit
     self.goal = _goal
 
-@public
+@external
 @payable
 def participate():
     assert block.timestamp < self.deadline
@@ -28,27 +28,27 @@ def participate():
     self.funders[nfi].value = msg.value
     self.nextFunderIndex = nfi + 1
 
-@public
-@constant
+@external
+@view
 def expired() -> bool:
     return block.timestamp >= self.deadline
 
-@public
-@constant
+@external
+@view
 def block_timestamp() -> uint256:
     return block.timestamp
 
-@public
-@constant
+@external
+@view
 def reached() -> bool:
     return self.balance >= self.goal
 
-@public
+@external
 def finalize():
     assert block.timestamp >= self.deadline and self.balance >= self.goal
     selfdestruct(self.beneficiary)
 
-@public
+@external
 def refund():
     ind: int128 = self.refundIndex
     for i in range(ind, ind + 30):
@@ -63,12 +63,12 @@ def refund():
     """
     a0, a1, a2, a3, a4, a5, a6 = w3.eth.accounts[:7]
     c = get_contract_with_gas_estimation_for_constants(crowdfund, *[a1, 50, 60])
-    c.participate(transact={'value': 5})
+    c.participate(transact={"value": 5})
     assert c.timelimit() == 60
     assert c.deadline() - c.block_timestamp() == 59
     assert not c.expired()
     assert not c.reached()
-    c.participate(transact={'value': 49})
+    c.participate(transact={"value": 49})
     assert c.reached()
     pre_bal = w3.eth.getBalance(a1)
     w3.testing.mine(100)
@@ -78,10 +78,10 @@ def refund():
     assert post_bal - pre_bal == 54
 
     c = get_contract_with_gas_estimation_for_constants(crowdfund, *[a1, 50, 60])
-    c.participate(transact={'value': 1, 'from': a3})
-    c.participate(transact={'value': 2, 'from': a4})
-    c.participate(transact={'value': 3, 'from': a5})
-    c.participate(transact={'value': 4, 'from': a6})
+    c.participate(transact={"value": 1, "from": a3})
+    c.participate(transact={"value": 2, "from": a4})
+    c.participate(transact={"value": 3, "from": a5})
+    c.participate(transact={"value": 4, "from": a6})
     w3.testing.mine(100)
     assert c.expired()
     assert not c.reached()
@@ -97,7 +97,7 @@ struct Funder:
     sender: address
     value: uint256
 
-funders: map(int128, Funder)
+funders: HashMap[int128, Funder]
 nextFunderIndex: int128
 beneficiary: address
 deadline: public(uint256)
@@ -105,14 +105,14 @@ goal: uint256
 refundIndex: int128
 timelimit: public(uint256)
 
-@public
+@external
 def __init__(_beneficiary: address, _goal: uint256, _timelimit: uint256):
     self.beneficiary = _beneficiary
     self.deadline = block.timestamp + _timelimit
     self.timelimit = _timelimit
     self.goal = _goal
 
-@public
+@external
 @payable
 def participate():
     assert block.timestamp < self.deadline
@@ -120,27 +120,27 @@ def participate():
     self.funders[nfi] = Funder({sender: msg.sender, value: msg.value})
     self.nextFunderIndex = nfi + 1
 
-@public
-@constant
+@external
+@view
 def expired() -> bool:
     return block.timestamp >= self.deadline
 
-@public
-@constant
+@external
+@view
 def block_timestamp() -> uint256:
     return block.timestamp
 
-@public
-@constant
+@external
+@view
 def reached() -> bool:
     return self.balance >= self.goal
 
-@public
+@external
 def finalize():
     assert block.timestamp >= self.deadline and self.balance >= self.goal
     selfdestruct(self.beneficiary)
 
-@public
+@external
 def refund():
     ind: int128 = self.refundIndex
     for i in range(ind, ind + 30):
@@ -155,12 +155,12 @@ def refund():
     a0, a1, a2, a3, a4, a5, a6 = w3.eth.accounts[:7]
     c = get_contract_with_gas_estimation_for_constants(crowdfund2, *[a1, 50, 60])
 
-    c.participate(transact={'value': 5})
+    c.participate(transact={"value": 5})
     assert c.timelimit() == 60
     assert c.deadline() - c.block_timestamp() == 59
     assert not c.expired()
     assert not c.reached()
-    c.participate(transact={'value': 49})
+    c.participate(transact={"value": 49})
     assert c.reached()
     pre_bal = w3.eth.getBalance(a1)
     w3.testing.mine(100)
@@ -170,10 +170,10 @@ def refund():
     assert post_bal - pre_bal == 54
 
     c = get_contract_with_gas_estimation_for_constants(crowdfund2, *[a1, 50, 60])
-    c.participate(transact={'value': 1, 'from': a3})
-    c.participate(transact={'value': 2, 'from': a4})
-    c.participate(transact={'value': 3, 'from': a5})
-    c.participate(transact={'value': 4, 'from': a6})
+    c.participate(transact={"value": 1, "from": a3})
+    c.participate(transact={"value": 2, "from": a4})
+    c.participate(transact={"value": 3, "from": a5})
+    c.participate(transact={"value": 4, "from": a6})
     w3.testing.mine(100)
     assert c.expired()
     assert not c.reached()

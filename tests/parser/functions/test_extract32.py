@@ -1,19 +1,17 @@
-
-
 def test_extract32_extraction(assert_tx_failed, get_contract_with_gas_estimation):
     extract32_code = """
-y: bytes[100]
-@public
-def extrakt32(inp: bytes[100], index: int128) -> bytes32:
+y: Bytes[100]
+@external
+def extrakt32(inp: Bytes[100], index: int128) -> bytes32:
     return extract32(inp, index)
 
-@public
-def extrakt32_mem(inp: bytes[100], index: int128) -> bytes32:
-    x: bytes[100] = inp
+@external
+def extrakt32_mem(inp: Bytes[100], index: int128) -> bytes32:
+    x: Bytes[100] = inp
     return extract32(x, index)
 
-@public
-def extrakt32_storage(index: int128, inp: bytes[100]) -> bytes32:
+@external
+def extrakt32_storage(index: int128, inp: Bytes[100]) -> bytes32:
     self.y = inp
     return extract32(self.y, index)
     """
@@ -37,7 +35,7 @@ def extrakt32_storage(index: int128, inp: bytes[100]) -> bytes32:
     )
 
     for S, i in test_cases:
-        expected_result = S[i: i + 32] if 0 <= i <= len(S) - 32 else None
+        expected_result = S[i : i + 32] if 0 <= i <= len(S) - 32 else None  # noqa: E203
         if expected_result is None:
             assert_tx_failed(lambda: c.extrakt32(S, i))
         else:
@@ -50,25 +48,25 @@ def extrakt32_storage(index: int128, inp: bytes[100]) -> bytes32:
 
 def test_extract32_code(assert_tx_failed, get_contract_with_gas_estimation):
     extract32_code = """
-@public
-def foo(inp: bytes[32]) -> int128:
-    return extract32(inp, 0, type=int128)
+@external
+def foo(inp: Bytes[32]) -> int128:
+    return extract32(inp, 0, output_type=int128)
 
-@public
-def bar(inp: bytes[32]) -> uint256:
-    return extract32(inp, 0, type=uint256)
+@external
+def bar(inp: Bytes[32]) -> uint256:
+    return extract32(inp, 0, output_type=uint256)
 
-@public
-def baz(inp: bytes[32]) -> bytes32:
-    return extract32(inp, 0, type=bytes32)
+@external
+def baz(inp: Bytes[32]) -> bytes32:
+    return extract32(inp, 0, output_type=bytes32)
 
-@public
-def fop(inp: bytes[32]) -> bytes32:
+@external
+def fop(inp: Bytes[32]) -> bytes32:
     return extract32(inp, 0)
 
-@public
-def foq(inp: bytes[32]) -> address:
-    return extract32(inp, 0, type=address)
+@external
+def foq(inp: Bytes[32]) -> address:
+    return extract32(inp, 0, output_type=address)
     """
 
     c = get_contract_with_gas_estimation(extract32_code)
@@ -77,7 +75,7 @@ def foq(inp: bytes[32]) -> address:
 
     assert_tx_failed(lambda: c.foo(b"\x80" + b"\x00" * 30))
 
-    assert c.bar(b"\x80" + b"\x00" * 31) == 2**255
+    assert c.bar(b"\x80" + b"\x00" * 31) == 2 ** 255
 
     assert c.baz(b"crow" * 8) == b"crow" * 8
     assert c.fop(b"crow" * 8) == b"crow" * 8
@@ -85,4 +83,4 @@ def foq(inp: bytes[32]) -> address:
 
     assert_tx_failed(lambda: c.foq(b"crow" * 8))
 
-    print('Passed extract32 test')
+    print("Passed extract32 test")

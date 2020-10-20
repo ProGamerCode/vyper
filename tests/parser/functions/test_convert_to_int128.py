@@ -1,4 +1,4 @@
-from vyper.exceptions import InvalidLiteral, TypeMismatch
+from vyper.exceptions import InvalidLiteral, OverflowException, TypeMismatch
 from vyper.utils import SizeLimits
 
 
@@ -6,31 +6,31 @@ def test_convert_to_int128(get_contract_with_gas_estimation):
     code = """
 a: uint256
 b: bytes32
-c: bytes[1]
+c: Bytes[1]
 
-@public
+@external
 def uint256_to_num(inp: uint256) -> (int128, int128):
     self.a = inp
     memory: int128  = convert(inp, int128)
     storage: int128 = convert(self.a, int128)
     return  memory, storage
 
-@public
+@external
 def bytes32_to_num() -> (int128, int128):
     self.b = 0x0000000000000000000000000000000000000000000000000000000000000001
     literal: int128 = convert(0x0000000000000000000000000000000000000000000000000000000000000001, int128)  # noqa: E501
     storage: int128 = convert(self.b, int128)
     return literal, storage
 
-@public
+@external
 def bytes_to_num() -> (int128, int128):
     self.c = b'a'
     literal: int128 = convert('a', int128)
     storage: int128 = convert(self.c, int128)
     return literal, storage
 
-@public
-def zero_bytes(inp: bytes[1]) -> int128:
+@external
+def zero_bytes(inp: Bytes[1]) -> int128:
     return convert(inp, int128)
     """
 
@@ -39,27 +39,27 @@ def zero_bytes(inp: bytes[1]) -> int128:
     assert c.bytes32_to_num() == [1, 1]
     assert c.bytes_to_num() == [97, 97]
 
-    assert c.zero_bytes(b'\x01') == 1
-    assert c.zero_bytes(b'\x00') == 0
+    assert c.zero_bytes(b"\x01") == 1
+    assert c.zero_bytes(b"\x00") == 0
 
 
-def test_convert_from_bytes(assert_compile_failed,
-                            assert_tx_failed,
-                            get_contract_with_gas_estimation):
+def test_convert_from_bytes(
+    assert_compile_failed, assert_tx_failed, get_contract_with_gas_estimation
+):
     # Test valid bytes input for conversion
     test_success = """
-@public
-def foo(bar: bytes[5]) -> int128:
+@external
+def foo(bar: Bytes[5]) -> int128:
     return convert(bar, int128)
     """
 
     c = get_contract_with_gas_estimation(test_success)
-    assert c.foo(b'\x00\x00\x00\x00\x00') == 0
-    assert c.foo(b'\x00\x07\x5B\xCD\x15') == 123456789
+    assert c.foo(b"\x00\x00\x00\x00\x00") == 0
+    assert c.foo(b"\x00\x07\x5B\xCD\x15") == 123456789
 
     test_success = """
-@public
-def foo(bar: bytes[32]) -> int128:
+@external
+def foo(bar: Bytes[32]) -> int128:
     return convert(bar, int128)
     """
 
@@ -75,9 +75,9 @@ def foo(bar: bytes[32]) -> int128:
     assert_tx_failed(lambda: c.foo(b"\x01" * 33))
 
     bytes_to_num_code = """
-astor: bytes[10]
+astor: Bytes[10]
 
-@public
+@external
 def bar_storage() -> int128:
     self.astor = b"a"
     return convert(self.astor, int128)
@@ -88,32 +88,28 @@ def bar_storage() -> int128:
 
     # Test overflow bytes input for conversion
     test_fail = """
-@public
-def foo(bar: bytes[33]) -> int128:
+@external
+def foo(bar: Bytes[33]) -> int128:
     return convert(bar, int128)
     """
 
-    assert_compile_failed(
-        lambda: get_contract_with_gas_estimation(test_fail),
-        TypeMismatch
-    )
+    assert_compile_failed(lambda: get_contract_with_gas_estimation(test_fail), TypeMismatch)
 
     test_fail = """
-@public
+@external
 def foobar() -> int128:
-    barfoo: bytes[63] = "Hello darkness, my old friend I've come to talk with you again."
+    barfoo: Bytes[63] = b"Hello darkness, my old friend I've come to talk with you again."
     return convert(barfoo, int128)
     """
 
     assert_compile_failed(
-        lambda: get_contract_with_gas_estimation(test_fail),
-        TypeMismatch
+        lambda: get_contract_with_gas_estimation(test_fail), TypeMismatch,
     )
 
 
 def test_convert_from_bool(get_contract_with_gas_estimation):
     code = """
-@public
+@external
 def from_bool(flag: bool) -> int128:
     flagInt: int128 = convert(flag, int128)
     return flagInt
@@ -126,56 +122,51 @@ def from_bool(flag: bool) -> int128:
 
 def test_convert_from_uint256(get_contract_with_gas_estimation):
     code = """
-@public
+@external
 def test(foo: uint256) -> int128:
     return convert(foo, int128)
     """
 
     c = get_contract_with_gas_estimation(code)
     assert c.test(0) == 0
-    assert c.test(2**127 - 1) == 2**127 - 1
+    assert c.test(2 ** 127 - 1) == 2 ** 127 - 1
 
 
 def test_out_of_range_from_uint256(assert_tx_failed, get_contract_with_gas_estimation):
     code = """
-@public
+@external
 def test(foo: uint256) -> int128:
     return convert(foo, int128)
     """
 
     c = get_contract_with_gas_estimation(code)
-    assert_tx_failed(lambda: c.test(2**127))
-    assert_tx_failed(lambda: c.test(2**256 - 1))
+    assert_tx_failed(lambda: c.test(2 ** 127))
+    assert_tx_failed(lambda: c.test(2 ** 256 - 1))
 
 
-def test_out_of_range_from_uint256_at_compile(assert_compile_failed,
-                                              get_contract_with_gas_estimation):
+def test_out_of_range_from_uint256_at_compile(
+    assert_compile_failed, get_contract_with_gas_estimation
+):
     code = """
-@public
+@external
 def test() -> int128:
     return convert(2**127, int128)
     """
 
-    assert_compile_failed(
-        lambda: get_contract_with_gas_estimation(code),
-        InvalidLiteral
-    )
+    assert_compile_failed(lambda: get_contract_with_gas_estimation(code), InvalidLiteral)
 
     code = """
-@public
+@external
 def test() -> int128:
-    return convert(2**256 - 1, int128)
+    return convert(2**127, int128)
     """
 
-    assert_compile_failed(
-        lambda: get_contract_with_gas_estimation(code),
-        InvalidLiteral
-    )
+    assert_compile_failed(lambda: get_contract_with_gas_estimation(code), InvalidLiteral)
 
 
 def test_convert_from_bytes32_overflow(assert_tx_failed, get_contract_with_gas_estimation):
     code = """
-@public
+@external
 def test1():
     y: bytes32 = 0x1000000000000000000000000000000000000000000000000000000000000000
     x: int128 = convert(y, int128)
@@ -187,7 +178,7 @@ def test1():
 
 def test_convert_out_of_range_literal(assert_compile_failed, get_contract_with_gas_estimation):
     code = """
-@public
+@external
 def test2():
     x: int128
     x = convert(340282366920938463463374607431768211459, int128)
@@ -202,29 +193,29 @@ bar: decimal
 nar: decimal
 mar: decimal
 
-@public
+@external
 def foo() -> int128:
     return convert(27.2319, int128)
 
-@public
+@external
 def hoo() -> int128:
     return convert(-432.298391, int128)
 
-@public
+@external
 def goo() -> int128:
     return convert(0.1234, int128)
 
-@public
+@external
 def foobar() -> int128:
     self.bar = 27.2319
     return convert(self.bar, int128)
 
-@public
+@external
 def hoonar() -> int128:
     self.nar = -432.298391
     return convert(self.nar, int128)
 
-@public
+@external
 def goomar() -> int128:
     self.mar = 0.1234
     return convert(self.mar, int128)
@@ -239,29 +230,27 @@ def goomar() -> int128:
     assert c.goomar() == 0
 
 
-def test_convert_from_overflow_decimal(assert_compile_failed,
-                                       assert_tx_failed,
-                                       get_contract_with_gas_estimation):
+def test_convert_from_overflow_decimal(
+    assert_compile_failed, assert_tx_failed, get_contract_with_gas_estimation
+):
     code = """
-@public
+@external
 def foo() -> int128:
     return convert(180141183460469231731687303715884105728.0, int128)
     """
 
     assert_compile_failed(
-        lambda: get_contract_with_gas_estimation(code),
-        InvalidLiteral
+        lambda: get_contract_with_gas_estimation(code), OverflowException,
     )
 
     code = """
-@public
+@external
 def foo() -> int128:
     return convert(-180141183460469231731687303715884105728.0, int128)
     """
 
     assert_compile_failed(
-        lambda: get_contract_with_gas_estimation(code),
-        InvalidLiteral
+        lambda: get_contract_with_gas_estimation(code), OverflowException,
     )
 
 
@@ -269,79 +258,79 @@ def test_convert_from_address(w3, get_contract):
     code = """
 stor: address
 
-@public
+@external
 def testCompiles():
     x: int128 = convert(msg.sender, int128)
 
-@public
+@external
 def conv_neg1_stor() -> int128:
     self.stor = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF
     return convert(self.stor, int128)
 
-@public
+@external
 def conv_neg1_literal() -> int128:
     return convert(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF, int128)
 
-@public
+@external
 def conv_neg1_stor_alt() -> int128:
     self.stor = 0x00000000fFFFffffffFfFfFFffFfFffFFFfFffff
     return convert(self.stor, int128)
 
-@public
+@external
 def conv_neg1_literal_alt() -> int128:
     return convert(0x00000000fFFFffffffFfFfFFffFfFffFFFfFffff, int128)
 
-@public
+@external
 def conv_min_stor() -> int128:
     self.stor = 0x0000000080000000000000000000000000000000
     return convert(self.stor, int128)
 
-@public
+@external
 def conv_min_literal() -> int128:
     return convert(0x0000000080000000000000000000000000000000, int128)
 
-@public
+@external
 def conv_min_stor_alt() -> int128:
     self.stor = 0x1234567880000000000000000000000000000000
     return convert(self.stor, int128)
 
-@public
+@external
 def conv_min_literal_alt() -> int128:
     return convert(0x1234567880000000000000000000000000000000, int128)
 
-@public
+@external
 def conv_zero_stor() -> int128:
     self.stor = ZERO_ADDRESS
     return convert(self.stor, int128)
 
-@public
+@external
 def conv_zero_literal() -> int128:
     return convert(ZERO_ADDRESS, int128)
 
-@public
+@external
 def conv_zero_stor_alt() -> int128:
     self.stor = 0xffFFfFFf00000000000000000000000000000000
     return convert(self.stor, int128)
 
-@public
+@external
 def conv_zero_literal_alt() -> int128:
     return convert(0xffFFfFFf00000000000000000000000000000000, int128)
 
-@public
+@external
 def conv_max_stor() -> int128:
     self.stor = 0xFffffFff7FFFFFFfFffFffFfFFffFffFFfFfffFF
     return convert(self.stor, int128)
 
-@public
+@external
 def conv_max_literal() -> int128:
     return convert(0xFffffFff7FFFFFFfFffFffFfFFffFffFFfFfffFF, int128)
 
-@public
+@external
 def conv_max_stor_alt() -> int128:
     self.stor = 0x000000007FfFFffffFFFFfffffffFffFfFffffFF
     return convert(self.stor, int128)
 
-@public
+@external
 def conv_max_literal_alt() -> int128:
     return convert(0x000000007FfFFffffFFFFfffffffFffFfFffffFF, int128)
     """

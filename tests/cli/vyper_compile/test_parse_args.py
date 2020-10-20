@@ -14,12 +14,12 @@ def chdir_path(tmp_path):
 
 def test_paths(chdir_path):
     code = """
-@public
+@external
 def foo() -> bool:
     return True
 """
-    bar_path = chdir_path.joinpath('bar.vy')
-    with bar_path.open('w') as fp:
+    bar_path = chdir_path.joinpath("bar.vy")
+    with bar_path.open("w") as fp:
         fp.write(code)
     _parse_args([str(bar_path)])  # absolute path
     os.chdir(chdir_path.parent)

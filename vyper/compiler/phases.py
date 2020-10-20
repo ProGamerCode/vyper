@@ -4,6 +4,7 @@ from typing import Optional, Tuple
 
 from vyper import ast as vy_ast
 from vyper import compile_lll, optimizer
+from vyper.context import validate_semantics
 from vyper.parser import parser
 from vyper.parser.global_context import GlobalContext
 from vyper.typing import InterfaceImports
@@ -70,7 +71,7 @@ class CompilerData:
     @property
     def vyper_module(self) -> vy_ast.Module:
         if not hasattr(self, "_vyper_module"):
-            self._vyper_module = generate_ast(self.source_code, self.source_id)
+            self._vyper_module = generate_ast(self.source_code, self.source_id, self.contract_name)
 
         return self._vyper_module
 
@@ -78,6 +79,7 @@ class CompilerData:
     def vyper_module_folded(self) -> vy_ast.Module:
         if not hasattr(self, "_vyper_module_folded"):
             self._vyper_module_folded = generate_folded_ast(self.vyper_module)
+            validate_semantics(self._vyper_module_folded, self.interface_codes)
 
         return self._vyper_module_folded
 
@@ -92,9 +94,7 @@ class CompilerData:
 
     def _gen_lll(self) -> None:
         # fetch both deployment and runtime LLL
-        self._lll_nodes, self._lll_runtime = generate_lll_nodes(
-            self.source_code, self.global_ctx
-        )
+        self._lll_nodes, self._lll_runtime = generate_lll_nodes(self.source_code, self.global_ctx)
 
     @property
     def lll_nodes(self) -> parser.LLLnode:
@@ -133,7 +133,7 @@ class CompilerData:
         return self._bytecode_runtime
 
 
-def generate_ast(source_code: str, source_id: int) -> vy_ast.Module:
+def generate_ast(source_code: str, source_id: int, contract_name: str) -> vy_ast.Module:
     """
     Generate a Vyper AST from source code.
 
@@ -143,13 +143,15 @@ def generate_ast(source_code: str, source_id: int) -> vy_ast.Module:
         Vyper source code.
     source_id : int
         ID number used to identify this contract in the source map.
+    contract_name : str
+        Name of the contract.
 
     Returns
     -------
     vy_ast.Module
         Top-level Vyper AST node
     """
-    return vy_ast.parse_to_ast(source_code, source_id)
+    return vy_ast.parse_to_ast(source_code, source_id, contract_name)
 
 
 def generate_folded_ast(vyper_module: vy_ast.Module) -> vy_ast.Module:
@@ -166,6 +168,8 @@ def generate_folded_ast(vyper_module: vy_ast.Module) -> vy_ast.Module:
     vy_ast.Module
         Folded Vyper AST
     """
+    vy_ast.validation.validate_literal_nodes(vyper_module)
+
     vyper_module_folded = copy.deepcopy(vyper_module)
     vy_ast.folding.fold(vyper_module_folded)
 
@@ -190,9 +194,7 @@ def generate_global_context(
     GlobalContext
         Sorted, contextualized representation of the Vyper AST
     """
-    return GlobalContext.get_global_context(
-        vyper_module, interface_codes=interface_codes
-    )
+    return GlobalContext.get_global_context(vyper_module, interface_codes=interface_codes)
 
 
 def generate_lll_nodes(

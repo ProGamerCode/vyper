@@ -2,145 +2,106 @@ import pytest
 from pytest import raises
 
 from vyper import compiler
-from vyper.exceptions import ConstancyViolation
+from vyper.exceptions import ImmutableViolation, StateAccessViolation
 
-fail_list = [
-    """
+
+@pytest.mark.parametrize(
+    "bad_code",
+    [
+        """
 x: int128
-@public
-@constant
+@external
+@view
 def foo() -> int128:
     self.x = 5
-    return 1
-    """,
-    """
-@public
-@constant
+    return 1""",
+        """
+@external
+@view
 def foo() -> int128:
     send(0x1234567890123456789012345678901234567890, 5)
-    return 1
-    """,
-    """
-@public
-@constant
-def foo() -> int128:
-    selfdestruct(0x1234567890123456789012345678901234567890)
-    """,
-    """
+    return 1""",
+        """
+@external
+@view
+def foo():
+    selfdestruct(0x1234567890123456789012345678901234567890)""",
+        """
 x: int128
 y: int128
-@public
-@constant
+@external
+@view
 def foo() -> int128:
     self.y = 9
-    return 5
-    """,
-    """
-@public
-@constant
+    return 5""",
+        """
+@external
+@view
 def foo() -> int128:
-    x = raw_call(
+    x: Bytes[4] = raw_call(
         0x1234567890123456789012345678901234567890, b"cow", max_outsize=4, gas=595757, value=9
     )
-    return 5
-    """,
-    """
-@public
-@constant
+    return 5""",
+        """
+@external
+@view
 def foo() -> int128:
-    x = create_forwarder_to(0x1234567890123456789012345678901234567890, value=9)
+    x: address = create_forwarder_to(0x1234567890123456789012345678901234567890, value=9)
+    return 5""",
+        # test constancy in range expressions
+        """
+glob: int128
+@internal
+def foo() -> int128:
+    self.glob += 1
     return 5
-    """,
-    """
-@public
-def foo(x: int128):
-    x = 5
-    """,
-    """
+@external
+def bar():
+    for i in range(self.foo(), self.foo() + 1):
+        pass""",
+        """
+glob: int128
+@internal
+def foo() -> int128:
+    self.glob += 1
+    return 5
+@external
+def bar():
+    for i in [1,2,3,4,self.foo()]:
+        pass""",
+        """
+@external
+def foo():
+    x: int128 = 5
+    for i in range(x):
+        pass""",
+        """
 f:int128
 
-@public
-def a (x:int128)->int128:
-    self.f = 100
-    return x+5
-
-@constant
-@public
-def b():
-    p: int128 = self.a(10)
-    """,
-    """
-f:int128
-
-@public
+@external
 def a (x:int128):
     self.f = 100
 
-@constant
-@public
+@view
+@external
 def b():
-    self.a(10)
-    """,
-    # test constancy in range expressions
-    """
-glob: int128
-@public
-def foo() -> int128:
-    self.glob += 1
-    return 5
-@public
-def bar():
-    for i in range(self.foo(), self.foo() + 1):
-        pass
-    """,
-    """
-glob: int128
-@public
-def foo() -> int128:
-    self.glob += 1
-    return 5
-@public
-def bar():
-    for i in range(self.foo()):
-        pass
-    """,
-    """
-glob: int128
-@public
-def foo() -> int128:
-    self.glob += 1
-    return 5
-@public
-def bar():
-    for i in [1,2,3,4,self.foo()]:
-        pass
-    """,
-    """
-glob: int128
-@public
-def foo() -> int128:
-    self.glob += 1
-    return 5
-@public
-def bar():
-    for i in range(self.foo(), 7):
-        pass
-    """,
-    """
-glob: int128
-@public
-def foo() -> int128:
-    self.glob += 1
-    return 5
-@public
-def bar():
-    for i in range(3, self.foo()):
-        pass
-    """
-]
+    self.a(10)""",
+    ],
+)
+def test_statefulness_violations(bad_code):
+    with raises(StateAccessViolation):
+        compiler.compile_code(bad_code)
 
 
-@pytest.mark.parametrize('bad_code', fail_list)
-def test_constancy_violation_exception(bad_code):
-    with raises(ConstancyViolation):
+@pytest.mark.parametrize(
+    "bad_code",
+    [
+        """
+@external
+def foo(x: int128):
+    x = 5""",
+    ],
+)
+def test_immutability_violations(bad_code):
+    with raises(ImmutableViolation):
         compiler.compile_code(bad_code)

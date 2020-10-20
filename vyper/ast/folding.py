@@ -172,9 +172,7 @@ def replace_user_defined_constants(vyper_module: vy_ast.Module) -> int:
             # annotation is not wrapped in `constant(...)`
             continue
 
-        changed_nodes += replace_constant(
-            vyper_module, node.target.id, node.value, False
-        )
+        changed_nodes += replace_constant(vyper_module, node.target.id, node.value, False)
 
     return changed_nodes
 
@@ -183,8 +181,8 @@ def _replace(old_node, new_node):
     if isinstance(new_node, vy_ast.Constant):
         return new_node.from_node(old_node, value=new_node.value)
     elif isinstance(new_node, vy_ast.List):
-        list_values = [_replace(old_node, i) for i in new_node.elts]
-        return new_node.from_node(old_node, elts=list_values)
+        list_values = [_replace(old_node, i) for i in new_node.elements]
+        return new_node.from_node(old_node, elements=list_values)
     else:
         raise UnfoldableNode
 
@@ -217,22 +215,24 @@ def replace_constant(
     changed_nodes = 0
 
     for node in vyper_module.get_descendants(vy_ast.Name, {"id": id_}, reverse=True):
-        # do not replace attributes or calls
-        if isinstance(node.get_ancestor(), (vy_ast.Attribute, vy_ast.Call)):
+        parent = node.get_ancestor()
+
+        if isinstance(parent, vy_ast.Attribute):
+            # do not replace attributes
             continue
-        # do not replace dictionary keys
-        if (
-            isinstance(node.get_ancestor(), vy_ast.Dict)
-            and node in node.get_ancestor().keys
-        ):
+        if isinstance(parent, vy_ast.Call) and node == parent.func:
+            # do not replace calls
             continue
 
-        if not isinstance(node.get_ancestor(), vy_ast.Index):
+        # do not replace dictionary keys
+        if isinstance(parent, vy_ast.Dict) and node in parent.keys:
+            continue
+
+        if not node.get_ancestor(vy_ast.Index):
             # do not replace left-hand side of assignments
-            parent = node.get_ancestor(
-                (vy_ast.Assign, vy_ast.AnnAssign, vy_ast.AugAssign)
-            )
-            if parent and node in parent.target.get_descendants(include_self=True):
+            assign = node.get_ancestor((vy_ast.Assign, vy_ast.AnnAssign, vy_ast.AugAssign))
+
+            if assign and node in assign.target.get_descendants(include_self=True):
                 continue
 
         try:
@@ -241,6 +241,7 @@ def replace_constant(
             if raise_on_error:
                 raise
             continue
+
         changed_nodes += 1
         vyper_module.replace_in_tree(node, new_node)
 

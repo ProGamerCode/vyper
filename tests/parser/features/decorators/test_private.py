@@ -3,11 +3,11 @@ import pytest
 
 def test_private_test(get_contract_with_gas_estimation):
     private_test_code = """
-@private
+@internal
 def a() -> int128:
     return 5
 
-@public
+@external
 def returnten() -> int128:
     return self.a() * 2
     """
@@ -18,7 +18,7 @@ def returnten() -> int128:
 
 def test_private_with_more_vars(get_contract):
     private_test_code = """
-@private
+@internal
 def afunc() -> int128:
     a: int128 = 4
     b: int128 = 40
@@ -26,7 +26,7 @@ def afunc() -> int128:
     return a + b + c
 
 
-@public
+@external
 def return_it() -> int128:
     a: int128 = 111
     b: int128 = 222
@@ -43,21 +43,21 @@ def return_it() -> int128:
 
 def test_private_with_more_vars_nested(get_contract_with_gas_estimation):
     private_test_code = """
-@private
+@internal
 def more() -> int128:
     a: int128 = 50
     b: int128 = 50
     c: int128 = 11
     return a + b + c
 
-@private
+@internal
 def afunc() -> int128:
     a: int128 = 444
     a += self.more()
     assert a == 555
     return  a + self.more()
 
-@public
+@external
 def return_it() -> int128:
     a: int128 = 222
     b: int128 = 111
@@ -73,13 +73,13 @@ def return_it() -> int128:
 
 def test_private_with_args(get_contract_with_gas_estimation):
     private_test_code = """
-@private
+@internal
 def add_times2(a: uint256, b: uint256) -> uint256:
     assert a == 100
     assert b == 11
     return 2 * (a + b)
 
-@public
+@external
 def return_it() -> uint256:
     a: uint256 = 111
     b: uint256 = 222
@@ -93,18 +93,18 @@ def return_it() -> uint256:
 
 def test_private_with_args_nested(get_contract_with_gas_estimation):
     private_test_code = """
-@private
+@internal
 def multiply(a: uint256, b: uint256) -> uint256:
     c: uint256 = 7
     d: uint256 = 8
     e: uint256 = 9
     return a * b
 
-@private
+@internal
 def add_times2(a: uint256, b: uint256) -> uint256:
     return self.multiply(3, (a + b))
 
-@public
+@external
 def return_it() -> uint256:
     a: uint256 = 111
     b: uint256 = 222
@@ -118,19 +118,19 @@ def return_it() -> uint256:
 
 def test_private_bytes(get_contract_with_gas_estimation):
     private_test_code = """
-greeting: public(bytes[100])
+greeting: public(Bytes[100])
 
-@public
+@external
 def __init__():
     self.greeting = b"Hello "
 
-@private
-def construct(greet: bytes[100]) -> bytes[200]:
+@internal
+def construct(greet: Bytes[100]) -> Bytes[200]:
     return concat(self.greeting, greet)
 
-@public
-def hithere(name: bytes[100]) -> bytes[200]:
-    d: bytes[200] = self.construct(name)
+@external
+def hithere(name: Bytes[100]) -> Bytes[200]:
+    d: Bytes[200] = self.construct(name)
     return d
     """
 
@@ -141,14 +141,14 @@ def hithere(name: bytes[100]) -> bytes[200]:
 
 def test_private_statement(get_contract_with_gas_estimation):
     private_test_code = """
-greeting: public(bytes[20])
+greeting: public(Bytes[20])
 
-@public
+@external
 def __init__():
     self.greeting = b"Hello "
 
-@private
-def set_greeting(_greeting: bytes[20]):
+@internal
+def set_greeting(_greeting: Bytes[20]):
     a: uint256 = 332
     b: uint256 = 333
     c: uint256 = 334
@@ -156,44 +156,44 @@ def set_greeting(_greeting: bytes[20]):
     if a + b + c + d + 3 == 1337:
         self.greeting = _greeting
 
-@private
-@constant
-def construct(greet: bytes[20]) -> bytes[40]:
+@internal
+@view
+def construct(greet: Bytes[20]) -> Bytes[40]:
     return concat(self.greeting, greet)
 
-@public
-def iprefer(_greeting: bytes[20]):
+@external
+def iprefer(_greeting: Bytes[20]):
     a: uint256 = 112
     b: uint256 = 211
     self.set_greeting(_greeting)
     assert a == 112
     assert b == 211
 
-@public
-def hithere(name: bytes[20]) -> bytes[40]:
-    d: bytes[40] = self.construct(name)
+@external
+def hithere(name: Bytes[20]) -> Bytes[40]:
+    d: Bytes[40] = self.construct(name)
     return d
     """
 
     c = get_contract_with_gas_estimation(private_test_code)
     assert c.greeting() == b"Hello "
     assert c.hithere(b"Bob") == b"Hello Bob"
-    c.iprefer(b'Hi there, ', transact={})
+    c.iprefer(b"Hi there, ", transact={})
     assert c.hithere(b"Alice") == b"Hi there, Alice"
 
 
 def test_private_default_parameter(get_contract_with_gas_estimation):
     private_test_code = """
-@private
+@internal
 def addition(a: uint256, b: uint256 = 1) -> uint256:
     return a + b
 
 
-@public
+@external
 def add_one(a: uint256) -> uint256:
     return self.addition(a)
 
-@public
+@external
 def added(a: uint256, b: uint256) -> uint256:
     a_before: uint256 = a
     b_before: uint256 = b
@@ -214,48 +214,48 @@ def added(a: uint256, b: uint256) -> uint256:
 
 def test_private_return_bytes(get_contract_with_gas_estimation):
     code = """
-a_message: bytes[50]
+a_message: Bytes[50]
 
-@private
-def _test() -> (bytes[100]):
-    b: bytes[50] = b"hello                   1           2"
+@internal
+def _test() -> (Bytes[100]):
+    b: Bytes[50] = b"hello                   1           2"
     return b
 
-@private
-def _test_b(a: bytes[100]) -> (bytes[100]):
-    b: bytes[50] = b"hello there"
+@internal
+def _test_b(a: Bytes[100]) -> (Bytes[100]):
+    b: Bytes[50] = b"hello there"
     if len(a) > 1:
         return a
     else:
         return b
 
-@private
-def get_msg() -> (bytes[100]):
+@internal
+def get_msg() -> (Bytes[100]):
     return self.a_message
 
-@public
-def test() -> (bytes[100]):
-    d: bytes[100] = b""
+@external
+def test() -> (Bytes[100]):
+    d: Bytes[100] = b""
     d = self._test()
     return d
 
-@public
-def test2() -> (bytes[100]):
-    d: bytes[100] = b'xyzxyzxyzxyz'
+@external
+def test2() -> (Bytes[100]):
+    d: Bytes[100] = b'xyzxyzxyzxyz'
     return self._test()
 
-@public
-def test3(a: bytes[50]) -> (bytes[100]):
-    d: bytes[100] = b'xyzxyzxyzxyz'
+@external
+def test3(a: Bytes[50]) -> (Bytes[100]):
+    d: Bytes[100] = b'xyzxyzxyzxyz'
     return self._test_b(a)
 
-@public
-def set(a: bytes[50]):
+@external
+def set(a: Bytes[50]):
     self.a_message = a
 
-@public
-def test4() -> (bytes[100]):
-    d: bytes[100] = b'xyzxyzxyzxyz'
+@external
+def test4() -> (Bytes[100]):
+    d: Bytes[100] = b'xyzxyzxyzxyz'
     return self.get_msg()
     """
 
@@ -270,20 +270,20 @@ def test4() -> (bytes[100]):
 
 def test_private_bytes_as_args(get_contract_with_gas_estimation):
     code = """
-@private
-def _test(a: bytes[40]) -> (bytes[100]):
-    b: bytes[40] = b"hello "
+@internal
+def _test(a: Bytes[40]) -> (Bytes[100]):
+    b: Bytes[40] = b"hello "
     return concat(b, a)
 
-@public
-def test(a: bytes[10]) -> bytes[100]:
-    b: bytes[40] = concat(a, b", jack attack")
-    out: bytes[100] = self._test(b)
+@external
+def test(a: Bytes[10]) -> Bytes[100]:
+    b: Bytes[40] = concat(a, b", jack attack")
+    out: Bytes[100] = self._test(b)
     return out
 
-@public
-def test2() -> bytes[100]:
-    c: bytes[10] = b"alice"
+@external
+def test2() -> Bytes[100]:
+    c: Bytes[10] = b"alice"
     return self._test(c)
     """
 
@@ -294,12 +294,12 @@ def test2() -> bytes[100]:
 
 def test_private_return_tuple_base_types(get_contract_with_gas_estimation):
     code = """
-@private
+@internal
 def _test(a: bytes32) -> (bytes32, uint256, int128):
     b: uint256 = 1000
     return a, b, -1200
 
-@public
+@external
 def test(a: bytes32) -> (bytes32, uint256, int128):
     b: uint256 = 1
     c: int128 = 1
@@ -309,76 +309,76 @@ def test(a: bytes32) -> (bytes32, uint256, int128):
     assert d == 123
     return f, b, c
 
-@public
+@external
 def test2(a: bytes32) -> (bytes32, uint256, int128):
     return self._test(a)
     """
 
     c = get_contract_with_gas_estimation(code)
 
-    assert c.test(b"test") == [b"test" + 28 * b'\x00', 1000, -1200]
-    assert c.test2(b"test") == [b"test" + 28 * b'\x00', 1000, -1200]
+    assert c.test(b"test") == [b"test" + 28 * b"\x00", 1000, -1200]
+    assert c.test2(b"test") == [b"test" + 28 * b"\x00", 1000, -1200]
 
 
 def test_private_return_tuple_bytes(get_contract_with_gas_estimation):
     code = """
-@private
-def _test(a: int128, b: bytes[50]) -> (int128, bytes[100]):
+@internal
+def _test(a: int128, b: Bytes[50]) -> (int128, Bytes[100]):
     return a + 2, concat(b"badabing:", b)
 
-@private
-def _test_combined(a: bytes[50], x: int128, c:bytes[50]) -> (int128, bytes[100], bytes[100]):
+@internal
+def _test_combined(a: Bytes[50], x: int128, c:Bytes[50]) -> (int128, Bytes[100], Bytes[100]):
     assert x == 8
     return x + 2, a, concat(c, b'_two')
 
-@public
-def test(a: int128, b: bytes[40]) -> (int128, bytes[100], bytes[50]):
+@external
+def test(a: int128, b: Bytes[40]) -> (int128, Bytes[100], Bytes[50]):
     c: int128 = 1
-    x: bytes[50] = concat(b, b"_one")
-    d: bytes[100] = b""
+    x: Bytes[50] = concat(b, b"_one")
+    d: Bytes[100] = b""
     c, d = self._test(a + c, x)
     return c, d, x
 
-@public
-def test2(b: bytes[40]) -> (int128, bytes[100]):
+@external
+def test2(b: Bytes[40]) -> (int128, Bytes[100]):
     a: int128 = 4
-    x: bytes[50] = concat(b, b"_one")
-    d: bytes[100] = b""
+    x: Bytes[50] = concat(b, b"_one")
+    d: Bytes[100] = b""
     return self._test(a, x)
 
-@public
-def test3(a: bytes[32]) -> (int128, bytes[100], bytes[100]):
-    q: bytes[100] = b"random data1"
-    w: bytes[100] = b"random data2"
+@external
+def test3(a: Bytes[32]) -> (int128, Bytes[100], Bytes[100]):
+    q: Bytes[100] = b"random data1"
+    w: Bytes[100] = b"random data2"
     x: int128 = 8
-    b: bytes[32] = a
+    b: Bytes[32] = a
     x, q, w = self._test_combined(a, x, b)
     return x, q, w
 
-@public
-def test4(a: bytes[40]) -> (int128, bytes[100], bytes[100]):
-    b: bytes[50] = concat(a, b"_one")
+@external
+def test4(a: Bytes[40]) -> (int128, Bytes[100], Bytes[100]):
+    b: Bytes[50] = concat(a, b"_one")
     return self._test_combined(a, 8, b)
     """
 
     c = get_contract_with_gas_estimation(code)
 
-    assert c.test(11, b"jill") == [14, b'badabing:jill_one', b'jill_one']
-    assert c.test2(b"jack") == [6, b'badabing:jack_one']
-    assert c.test3(b"hill") == [10, b'hill', b'hill_two']
-    assert c.test4(b"bucket") == [10, b'bucket', b'bucket_one_two']
+    assert c.test(11, b"jill") == [14, b"badabing:jill_one", b"jill_one"]
+    assert c.test2(b"jack") == [6, b"badabing:jack_one"]
+    assert c.test3(b"hill") == [10, b"hill", b"hill_two"]
+    assert c.test4(b"bucket") == [10, b"bucket", b"bucket_one_two"]
 
 
 def test_private_return_list_types(get_contract_with_gas_estimation):
     code = """
-@private
+@internal
 def _test(b: int128[4]) -> int128[4]:
     assert b[1] == 2
     assert b[2] == 3
     assert b[3] == 4
     return [0, 1, 0, 1]
 
-@public
+@external
 def test() -> int128[4]:
     b: int128[4] = [1, 2, 3, 4]
     c: int128[2] = [11, 22]
@@ -391,16 +391,16 @@ def test() -> int128[4]:
 
 def test_private_payable(w3, get_contract_with_gas_estimation):
     code = """
-@private
+@internal
 def _send_it(a: address, _value: uint256):
     send(a, _value)
 
 @payable
-@public
+@external
 def test(doit: bool, a: address, _value: uint256):
     self._send_it(a, _value)
 
-@public
+@external
 @payable
 def __default__():
     pass
@@ -408,18 +408,18 @@ def __default__():
 
     c = get_contract_with_gas_estimation(code)
 
-    w3.eth.sendTransaction({'to': c.address, 'value': w3.toWei(1, 'ether')})
-    assert w3.eth.getBalance(c.address) == w3.toWei(1, 'ether')
+    w3.eth.sendTransaction({"to": c.address, "value": w3.toWei(1, "ether")})
+    assert w3.eth.getBalance(c.address) == w3.toWei(1, "ether")
     a3 = w3.eth.accounts[2]
-    assert w3.eth.getBalance(a3) == w3.toWei(1000000, 'ether')
-    c.test(True, a3, w3.toWei(0.05, 'ether'), transact={})
-    assert w3.eth.getBalance(a3) == w3.toWei(1000000.05, 'ether')
-    assert w3.eth.getBalance(c.address) == w3.toWei(0.95, 'ether')
+    assert w3.eth.getBalance(a3) == w3.toWei(1000000, "ether")
+    c.test(True, a3, w3.toWei(0.05, "ether"), transact={})
+    assert w3.eth.getBalance(a3) == w3.toWei(1000000.05, "ether")
+    assert w3.eth.getBalance(c.address) == w3.toWei(0.95, "ether")
 
 
 def test_private_msg_sender(get_contract, assert_compile_failed):
     code = """
-@private
+@internal
 def _whoami() -> address:
     return msg.sender
     """
@@ -429,35 +429,35 @@ def _whoami() -> address:
 
 def test_nested_static_params_only(get_contract, assert_tx_failed):
     code1 = """
-@private
-@constant
+@internal
+@view
 def c() -> bool:
     return True
 
-@private
-@constant
+@internal
+@view
 def b(sender: address) -> address:
     assert self.c()
     return sender
 
-@public
+@external
 def a() -> bool:
     assert self.b(msg.sender) == msg.sender
     return True
     """
 
     code2 = """
-@private
-@constant
+@internal
+@view
 def c(sender: address) -> address:
     return sender
 
-@private
-@constant
+@internal
+@view
 def b(sender: address) -> address:
     return self.c(sender)
 
-@public
+@external
 def a() -> bool:
     assert self.b(msg.sender) == msg.sender
     return True
@@ -472,7 +472,7 @@ def a() -> bool:
 def test_private_nested_if_return(get_contract):
     code = """
 
-@private
+@internal
 def _test(z: int128) -> bool:
     y: int128 = 1
 
@@ -484,7 +484,7 @@ def _test(z: int128) -> bool:
     return False
 
 
-@public
+@external
 def test(z: int128) -> bool:
     return self._test(z)
     """
@@ -501,12 +501,12 @@ def test_private_call_expr(get_contract):
 test: public(bool)
 
 
-@private
+@internal
 def foo():
     self.test = True
 
 
-@public
+@external
 def start():
     if True:
         self.foo()
@@ -521,10 +521,10 @@ def start():
 
 def test_private_array_param(get_contract):
     code = """
-@private
+@internal
 def change_arr(arr: int128[2]):
     pass
-@public
+@external
 def call_arr() -> int128:
     a: int128[2] = [0, 0] # test with zeroed arg
     self.change_arr(a)
@@ -537,11 +537,11 @@ def call_arr() -> int128:
 
 def test_private_zero_bytearray(get_contract):
     private_test_code = """
-@private
-def inner(xs: bytes[256]):
+@internal
+def inner(xs: Bytes[256]):
     pass
-@public
-def outer(xs: bytes[256] = b"") -> bool:
+@external
+def outer(xs: Bytes[256] = b"") -> bool:
     self.inner(xs)
     return True
     """
@@ -551,71 +551,94 @@ def outer(xs: bytes[256] = b"") -> bool:
 
 
 tuple_return_sources = [
-    ("""
-@private
+    (
+        """
+@internal
 def _test(a: int128) -> (int128, int128):
     return a + 2, 2
 
 
-@public
+@external
 def foo(a: int128) -> (int128, int128):
     return self._test(a)
-    """, (11,), [13, 2]),
-    ("""
+    """,
+        (11,),
+        [13, 2],
+    ),
+    (
+        """
 struct A:
     many: uint256[4]
     one: uint256
 
-@private
+@internal
 def _foo(_many: uint256[4], _one: uint256) -> A:
     return A({many: _many, one: _one})
 
-@public
+@external
 def foo() -> A:
     return self._foo([1, 2, 3, 4], 5)
-    """, (), ([1, 2, 3, 4], 5)),
-    ("""
+    """,
+        (),
+        [[1, 2, 3, 4], 5],
+    ),
+    (
+        """
 struct A:
     many: uint256[4]
     one: uint256
 
-@private
+@internal
 def _foo(_many: uint256[4], _one: uint256) -> A:
     return A({many: _many, one: _one})
 
-@public
+@external
 def foo() -> (uint256[4], uint256):
     out: A = self._foo([1, 2, 3, 4], 5)
     return out.many, out.one
-    """, (), [[1, 2, 3, 4], 5]),
-    ("""
-@private
+    """,
+        (),
+        [[1, 2, 3, 4], 5],
+    ),
+    (
+        """
+@internal
 def _foo() -> (uint256[2], uint256[2]):
     return [1, 2], [5, 6]
 
-@public
+@external
 def foo() -> (uint256[2], uint256[2], uint256[2]):
     return self._foo()[0], [3, 4], self._foo()[1]
-    """, (), [[1, 2], [3, 4], [5, 6]]),
-    ("""
-@private
+    """,
+        (),
+        [[1, 2], [3, 4], [5, 6]],
+    ),
+    (
+        """
+@internal
 def _foo(a: int128, b: int128[3], c: int128[3]) -> (int128[3], int128, int128[3]):
     return c, 4, [b[1], a, b[0]]
 
-@public
+@external
 def foo(a: int128, b: int128[3], c: int128[3]) -> (int128[3], int128, int128[3]):
     return self._foo(a, b, c)
-    """, (6, [7, 5, 8], [1, 2, 3]), [[1, 2, 3], 4, [5, 6, 7]]),
-    ("""
-@private
+    """,
+        (6, [7, 5, 8], [1, 2, 3]),
+        [[1, 2, 3], 4, [5, 6, 7]],
+    ),
+    (
+        """
+@internal
 def _foo(a: int128, b: int128[3], c: int128[3]) -> (int128[3], int128, int128[3]):
     return c, 4, [b[1], a, b[0]]
 
-@public
+@external
 def foo(a: int128, b: int128[3], c: int128[3]) -> (int128[3], int128, int128[3]):
     return c, 4, self._foo(a, b, c)[2]
-    """, (6, [7, 5, 8], [1, 2, 3]), [[1, 2, 3], 4, [5, 6, 7]]),
-
+    """,
+        (6, [7, 5, 8], [1, 2, 3]),
+        [[1, 2, 3], 4, [5, 6, 7]],
+    ),
 ]
 
 
